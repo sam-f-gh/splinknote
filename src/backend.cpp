@@ -213,14 +213,15 @@ void Backend::closeDocument() {
 }
 
 void Backend::saveDocument() {
-    if (m_filePicker) {
-        QUrl suggested;
-        if (!m_currentFilePath.isEmpty()) {
-            suggested = QUrl::fromLocalFile(m_currentFilePath);
-        } else {
-            suggested = QUrl::fromLocalFile(QDir::homePath() + "/note.pdf");
-        }
-        m_filePicker->savePdf(suggested);
+    if (!m_hasDocument)
+        return;
+
+    if (!m_currentFilePath.isEmpty()) {
+        // Direct fast-save without prompt when file path is already known
+        savePdfFile(m_currentFilePath);
+    } else if (m_filePicker) {
+        // First-time save for an untitled note: prompt file chooser
+        m_filePicker->savePdf(QUrl::fromLocalFile(QDir::homePath() + "/note.pdf"));
     }
 }
 

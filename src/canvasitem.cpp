@@ -33,6 +33,14 @@ QPainterPath buildSmoothPath(const QVector<StrokePoint> &pts) {
     path.lineTo(pts.last().x, pts.last().y);
     return path;
 }
+
+bool isStylusEraser(const QPointingDevice *dev, Qt::MouseButtons buttons) {
+    if (dev && dev->pointerType() == QPointingDevice::PointerType::Eraser)
+        return true;
+    if (buttons & (Qt::RightButton | Qt::TaskButton | Qt::BackButton | Qt::ExtraButton1))
+        return true;
+    return false;
+}
 }
 
 CanvasItem::CanvasItem(QQuickItem *parent) : QQuickPaintedItem(parent) {
@@ -77,12 +85,38 @@ void CanvasItem::setZoom(qreal z) {
     if (!qFuzzyCompare(m_zoom, z)) {
         m_zoom = z;
         emit zoomChanged();
+
+        // Auto-recenter if page fits within window width
+        if (m_backend) {
+            const qreal scaledW = m_backend->pageWidth() * m_zoom;
+            if (scaledW <= width()) {
+                m_panX = 0.0;
+                emit panChanged();
+            }
+        }
+
         checkAutoExpand();
         update();
     }
 }
 
 void CanvasItem::setPanX(qreal x) {
+    if (!m_backend || m_backend->pageCount() == 0) {
+        m_panX = 0.0;
+        return;
+    }
+
+    const qreal pageW = m_backend->pageWidth();
+    const qreal scaledW = pageW * m_zoom;
+
+    // Rule: Locked to 0 (centered) when page fits within window width
+    if (scaledW <= width()) {
+        x = 0.0;
+    } else {
+        const qreal maxPan = (scaledW - width()) * 0.5;
+        x = std::clamp(x, -maxPan, maxPan);
+    }
+
     if (!qFuzzyCompare(m_panX, x)) {
         m_panX = x;
         emit panChanged();
@@ -159,9 +193,9 @@ QRectF CanvasItem::pageScreenRect(int index) const {
     const qreal scaledW = p->width * m_zoom;
     const qreal scaledH = p->height * m_zoom;
 
-    qreal originX = m_panX;
-    if (width() > scaledW) {
-        originX += (width() - scaledW) * 0.5;
+    qreal originX = (width() - scaledW) * 0.5;
+    if (scaledW > width()) {
+        originX += m_panX;
     }
     const qreal pageTopW = m_backend->pageTopWorld(index);
     const qreal originY = m_panY + 24.0 + (pageTopW * m_zoom);
@@ -169,16 +203,14 @@ QRectF CanvasItem::pageScreenRect(int index) const {
     return QRectF(originX, originY, scaledW, scaledH);
 }
 
-int CanvasItem::pageIndexAtScreenPos(const QPointF &screenPos, QPointF *outPagePos) const {
+int CanvasItem::pageIndexHit(const QPointF &screenPos, QPointF *outPagePos) const {
     if (!m_backend || m_backend->pageCount() == 0)
         return -1;
 
     const int count = m_backend->pageCount();
-
-    // 1. Direct hit check
     for (int i = 0; i < count; ++i) {
-        QRectF r = pageScreenRect(i);
-        if (screenPos.y() >= r.top() && screenPos.y() <= r.bottom()) {
+        const QRectF r = pageScreenRect(i);
+        if (r.contains(screenPos)) {
             if (outPagePos) {
                 outPagePos->setX((screenPos.x() - r.left()) / m_zoom);
                 outPagePos->setY((screenPos.y() - r.top()) / m_zoom);
@@ -186,10 +218,20 @@ int CanvasItem::pageIndexAtScreenPos(const QPointF &screenPos, QPointF *outPageP
             return i;
         }
     }
+    return -1;
+}
 
-    // 2. Above first page
+int CanvasItem::pageIndexAtScreenPos(const QPointF &screenPos, QPointF *outPagePos) const {
+    const int hit = pageIndexHit(screenPos, outPagePos);
+    if (hit >= 0)
+        return hit;
+
+    if (!m_backend || m_backend->pageCount() == 0)
+        return -1;
+
+    const int count = m_backend->pageCount();
     if (screenPos.y() < pageScreenRect(0).top()) {
-        QRectF r0 = pageScreenRect(0);
+        const QRectF r0 = pageScreenRect(0);
         if (outPagePos) {
             outPagePos->setX((screenPos.x() - r0.left()) / m_zoom);
             outPagePos->setY((screenPos.y() - r0.top()) / m_zoom);
@@ -197,26 +239,8 @@ int CanvasItem::pageIndexAtScreenPos(const QPointF &screenPos, QPointF *outPageP
         return 0;
     }
 
-    // 3. In-between gap check
-    for (int i = 0; i < count - 1; ++i) {
-        QRectF curr = pageScreenRect(i);
-        QRectF next = pageScreenRect(i + 1);
-        if (screenPos.y() > curr.bottom() && screenPos.y() < next.top()) {
-            // Assign to closest page
-            const bool closerToNext = (screenPos.y() - curr.bottom()) > (next.top() - screenPos.y());
-            const int targetIdx = closerToNext ? (i + 1) : i;
-            QRectF targetRect = pageScreenRect(targetIdx);
-            if (outPagePos) {
-                outPagePos->setX((screenPos.x() - targetRect.left()) / m_zoom);
-                outPagePos->setY((screenPos.y() - targetRect.top()) / m_zoom);
-            }
-            return targetIdx;
-        }
-    }
-
-    // 4. Below last page
     const int lastIdx = count - 1;
-    QRectF rLast = pageScreenRect(lastIdx);
+    const QRectF rLast = pageScreenRect(lastIdx);
     if (outPagePos) {
         outPagePos->setX((screenPos.x() - rLast.left()) / m_zoom);
         outPagePos->setY((screenPos.y() - rLast.top()) / m_zoom);
@@ -229,8 +253,7 @@ void CanvasItem::checkAutoExpand() {
         return;
 
     const int count = m_backend->pageCount();
-    QRectF lastRect = pageScreenRect(count - 1);
-    // If the bottom of the last page is within 600px of viewport bottom, expand
+    const QRectF lastRect = pageScreenRect(count - 1);
     if (lastRect.bottom() <= height() + 600.0) {
         m_backend->autoExpandPages(count + 1);
     }
@@ -255,32 +278,31 @@ void CanvasItem::paint(QPainter *painter) {
     painter->setRenderHint(QPainter::SmoothPixmapTransform, true);
     painter->setRenderHint(QPainter::LosslessImageRendering, true);
 
-    // Workspace background filled with Omarchy theme tone
+    // Workspace background
     painter->fillRect(boundingRect(), m_backgroundColor);
 
     const qreal viewH = height();
     const int count = m_backend->pageCount();
 
-    // Continuous Multi-Page Vertical Loop with Frustum Culling
+    // Multi-page vertical loop with frustum culling
     for (int i = 0; i < count; ++i) {
         const QRectF r = pageScreenRect(i);
 
-        // Frustum culling: skip pages completely outside the visible viewport
         if (r.bottom() < -60.0 || r.top() > viewH + 60.0)
             continue;
 
-        // Ambient page drop shadow
+        // Ambient drop shadow
         painter->fillRect(QRectF(r.left() - 1, r.top() + 2, r.width() + 2, r.height() + 6), QColor(0, 0, 0, 80));
         painter->fillRect(QRectF(r.left() - 2, r.top() + 4, r.width() + 4, r.height() + 8), QColor(0, 0, 0, 40));
 
         // Crisp white paper surface
         painter->fillRect(r, QColor("#ffffff"));
 
-        // Subtle paper border outline
+        // Paper outline
         painter->setPen(QPen(QColor(180, 185, 195), 1.0));
         painter->drawRect(r);
 
-        // Page number tag above page header
+        // Page number tag
         if (count > 1) {
             painter->save();
             painter->setPen(QColor(140, 145, 160));
@@ -297,17 +319,18 @@ void CanvasItem::paint(QPainter *painter) {
         if (!page)
             continue;
 
-        // High-DPI Poppler PDF background (300 DPI supersampling)
+        // High-DPI Poppler PDF background
         if (!page->pdfBackground.isNull()) {
             painter->drawImage(r, page->pdfBackground);
         }
 
-        // Vector Inking for this page
+        // STRICT INKING BOUNDARY: Clip all strokes to the paper rectangle
         painter->save();
+        painter->setClipRect(r);
         painter->translate(r.topLeft());
         painter->scale(m_zoom, m_zoom);
 
-        // Pass 1: Highlighters (drawn beneath pen ink with uniform SourceOver alpha)
+        // Pass 1: Highlighters
         for (const Stroke &s : page->strokes) {
             if (s.tool != 1 || s.points.isEmpty())
                 continue;
@@ -318,7 +341,6 @@ void CanvasItem::paint(QPainter *painter) {
             painter->drawPath(path);
         }
 
-        // Active in-flight highlighter on this page
         if (m_isDrawing && m_activePageIndex == i && m_activeStroke.tool == 1 && !m_activeStroke.points.isEmpty()) {
             QPainterPath path = buildSmoothPath(m_activeStroke.points);
             QColor hlColor = m_activeStroke.color;
@@ -327,7 +349,7 @@ void CanvasItem::paint(QPainter *painter) {
             painter->drawPath(path);
         }
 
-        // Pass 2: Pen strokes (crisp vector curves on top)
+        // Pass 2: Pen strokes
         for (const Stroke &s : page->strokes) {
             if (s.tool != 0 || s.points.isEmpty())
                 continue;
@@ -336,7 +358,6 @@ void CanvasItem::paint(QPainter *painter) {
             painter->drawPath(path);
         }
 
-        // Active in-flight pen on this page
         if (m_isDrawing && m_activePageIndex == i && m_activeStroke.tool == 0 && !m_activeStroke.points.isEmpty()) {
             QPainterPath path = buildSmoothPath(m_activeStroke.points);
             painter->setPen(QPen(m_activeStroke.color, m_activeStroke.width, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
@@ -346,7 +367,7 @@ void CanvasItem::paint(QPainter *painter) {
         painter->restore();
     }
 
-    // Swept Eraser indicator ring (rendered in screen coordinates)
+    // Precision Eraser Indicator Ring
     const bool isEraserMode = (m_backend->currentTool() == 2) || m_hardwareEraserActive || m_isErasing;
     if ((isEraserMode || m_showEraserHover) && !m_hoverPos.isNull()) {
         const float r = m_backend->eraserRadius() * static_cast<float>(m_zoom);
@@ -358,21 +379,30 @@ void CanvasItem::paint(QPainter *painter) {
     }
 }
 
-void CanvasItem::handlePointerPress(const QPointF &pos, float pressure, bool isRightOrBarrel) {
+void CanvasItem::handlePointerPress(const QPointF &pos, float pressure, bool isEraser) {
     if (!m_backend || !m_backend->hasDocument())
         return;
 
     m_hoverPos = pos;
     QPointF pagePos;
-    m_activePageIndex = pageIndexAtScreenPos(pos, &pagePos);
-    if (m_activePageIndex < 0)
-        return;
+    const int hitPage = pageIndexHit(pos, &pagePos);
 
+    // If contact is outside all pages, enter margin vertical scroll mode!
+    if (hitPage < 0) {
+        m_isMarginPanning = true;
+        m_isDrawing = false;
+        m_isErasing = false;
+        m_lastPanPos = pos;
+        return;
+    }
+
+    m_isMarginPanning = false;
+    m_activePageIndex = hitPage;
     m_lastPagePos = pagePos;
 
-    const bool isEraser = (m_backend->currentTool() == 2) || isRightOrBarrel || m_hardwareEraserActive;
+    const bool activeEraser = (m_backend->currentTool() == 2) || isEraser || m_hardwareEraserActive;
 
-    if (isEraser) {
+    if (activeEraser) {
         m_isErasing = true;
         m_isDrawing = false;
         m_backend->eraseStrokes(m_activePageIndex, pagePos, pagePos, m_backend->eraserRadius());
@@ -404,17 +434,38 @@ void CanvasItem::handlePointerPress(const QPointF &pos, float pressure, bool isR
     update();
 }
 
-void CanvasItem::handlePointerMove(const QPointF &pos, float pressure) {
+void CanvasItem::handlePointerMove(const QPointF &pos, float pressure, bool isEraser) {
     if (!m_backend || !m_backend->hasDocument())
         return;
 
     m_hoverPos = pos;
-    QPointF pagePos;
-    const int pageIdx = pageIndexAtScreenPos(pos, &pagePos);
+
+    if (m_isMarginPanning) {
+        const qreal deltaY = pos.y() - m_lastPanPos.y();
+        m_lastPanPos = pos;
+        setPanY(m_panY + deltaY);
+        return;
+    }
+
+    const bool activeEraser = (m_backend->currentTool() == 2) || isEraser || m_hardwareEraserActive;
+
+    // Map pos to active page coordinate space
+    const QRectF r = pageScreenRect(m_activePageIndex);
+    const QPointF pagePos((pos.x() - r.left()) / m_zoom, (pos.y() - r.top()) / m_zoom);
+
+    // Dynamic mid-stroke tool switching when barrel button is toggled
+    if (m_isDrawing && activeEraser) {
+        m_isDrawing = false;
+        m_activeStroke.points.clear();
+        m_isErasing = true;
+    } else if (m_isErasing && !activeEraser && m_backend->currentTool() != 2) {
+        m_isErasing = false;
+        m_isDrawing = true;
+        m_activeStroke.points.clear();
+    }
 
     if (m_isErasing) {
-        const int targetPage = (pageIdx >= 0) ? pageIdx : m_activePageIndex;
-        m_backend->eraseStrokes(targetPage, m_lastPagePos, pagePos, m_backend->eraserRadius());
+        m_backend->eraseStrokes(m_activePageIndex, m_lastPagePos, pagePos, m_backend->eraserRadius());
         m_lastPagePos = pagePos;
         update();
         return;
@@ -438,6 +489,11 @@ void CanvasItem::handlePointerRelease(const QPointF &pos) {
 
     m_hoverPos = pos;
 
+    if (m_isMarginPanning) {
+        m_isMarginPanning = false;
+        return;
+    }
+
     if (m_isErasing) {
         m_isErasing = false;
         update();
@@ -446,8 +502,8 @@ void CanvasItem::handlePointerRelease(const QPointF &pos) {
 
     if (m_isDrawing) {
         m_isDrawing = false;
-        QPointF pagePos;
-        pageIndexAtScreenPos(pos, &pagePos);
+        const QRectF r = pageScreenRect(m_activePageIndex);
+        const QPointF pagePos((pos.x() - r.left()) / m_zoom, (pos.y() - r.top()) / m_zoom);
 
         if (m_activeStroke.points.isEmpty() ||
             (m_activeStroke.points.last().x != pagePos.x() || m_activeStroke.points.last().y != pagePos.y())) {
@@ -476,9 +532,7 @@ bool CanvasItem::event(QEvent *event) {
                 const qreal newZoom = std::clamp(oldZoom * scaleFactor, 0.25, 4.0);
                 const QPointF focalPos = ge->position();
                 m_panY = focalPos.y() - (focalPos.y() - m_panY) * (newZoom / oldZoom);
-                m_zoom = newZoom;
-                emit zoomChanged();
-                emit panChanged();
+                setZoom(newZoom);
                 updateActivePageIndexFromPan();
                 checkAutoExpand();
                 update();
@@ -493,11 +547,10 @@ bool CanvasItem::event(QEvent *event) {
         float p = static_cast<float>(te->pressure());
         if (p <= 0.001f) p = 0.5f;
 
-        const bool isHardwareEraser = (te->pointerType() == QPointingDevice::PointerType::Eraser);
-        m_hardwareEraserActive = isHardwareEraser;
-        const bool isSideButton = (te->buttons() & (Qt::RightButton | Qt::TaskButton));
+        const bool eraser = isStylusEraser(te->pointingDevice(), te->buttons());
+        m_hardwareEraserActive = (te->pointerType() == QPointingDevice::PointerType::Eraser);
 
-        handlePointerPress(te->position(), p, isHardwareEraser || isSideButton);
+        handlePointerPress(te->position(), p, eraser);
         event->accept();
         return true;
     }
@@ -506,10 +559,10 @@ bool CanvasItem::event(QEvent *event) {
         float p = static_cast<float>(te->pressure());
         if (p <= 0.001f) p = 0.5f;
 
-        const bool isHardwareEraser = (te->pointerType() == QPointingDevice::PointerType::Eraser);
-        m_hardwareEraserActive = isHardwareEraser;
+        const bool eraser = isStylusEraser(te->pointingDevice(), te->buttons());
+        m_hardwareEraserActive = (te->pointerType() == QPointingDevice::PointerType::Eraser);
 
-        handlePointerMove(te->position(), p);
+        handlePointerMove(te->position(), p, eraser);
         event->accept();
         return true;
     }
@@ -533,9 +586,7 @@ void CanvasItem::wheelEvent(QWheelEvent *event) {
         const qreal newZoom = std::clamp(oldZoom * factor, 0.25, 4.0);
         const QPointF mousePos = event->position();
         m_panY = mousePos.y() - (mousePos.y() - m_panY) * (newZoom / oldZoom);
-        m_zoom = newZoom;
-        emit zoomChanged();
-        emit panChanged();
+        setZoom(newZoom);
         updateActivePageIndexFromPan();
         checkAutoExpand();
         update();
@@ -555,8 +606,8 @@ void CanvasItem::mousePressEvent(QMouseEvent *event) {
         return;
     }
 
-    const bool isRight = (event->button() == Qt::RightButton);
-    handlePointerPress(event->position(), 0.5f, isRight);
+    const bool eraser = isStylusEraser(event->pointingDevice(), event->buttons()) || (event->button() == Qt::RightButton);
+    handlePointerPress(event->position(), 0.5f, eraser);
     event->accept();
 }
 
@@ -570,7 +621,8 @@ void CanvasItem::mouseMoveEvent(QMouseEvent *event) {
         return;
     }
 
-    handlePointerMove(event->position(), 0.5f);
+    const bool eraser = isStylusEraser(event->pointingDevice(), event->buttons());
+    handlePointerMove(event->position(), 0.5f, eraser);
     event->accept();
 }
 
@@ -596,6 +648,7 @@ void CanvasItem::touchEvent(QTouchEvent *event) {
             m_isDrawing = false;
             m_activeStroke.points.clear();
         }
+        m_isMarginPanning = false;
 
         const QPointF p0 = points[0].position();
         const QPointF p1 = points[1].position();
@@ -612,20 +665,13 @@ void CanvasItem::touchEvent(QTouchEvent *event) {
             const qreal oldZoom = m_zoom;
             const qreal newZoom = std::clamp(m_pinchStartZoom * scale, 0.25, 4.0);
 
-            // Zoom around gesture centroid
             const qreal ratio = newZoom / oldZoom;
-            m_panX = centroid.x() - (centroid.x() - m_panX) * ratio;
-            m_panY = centroid.y() - (centroid.y() - m_panY) * ratio;
-
-            // Pan delta
             const QPointF panDelta = centroid - m_pinchStartCentroid;
-            m_panX += panDelta.x();
-            m_panY += panDelta.y();
+            m_panY = centroid.y() - (centroid.y() - m_panY) * ratio + panDelta.y();
+            setPanX(centroid.x() - (centroid.x() - m_panX) * ratio + panDelta.x());
             m_pinchStartCentroid = centroid;
 
-            m_zoom = newZoom;
-            emit zoomChanged();
-            emit panChanged();
+            setZoom(newZoom);
             updateActivePageIndexFromPan();
             checkAutoExpand();
             update();
@@ -636,16 +682,17 @@ void CanvasItem::touchEvent(QTouchEvent *event) {
 
     m_isPinching = false;
 
-    // Single touch point: drawing or erasing
+    // Single touch point: drawing, erasing, or margin scrolling
     const auto &pt = points.first();
     const float pressure = pt.pressure() > 0.01f ? static_cast<float>(pt.pressure()) : 0.5f;
+    const bool eraser = (event->pointingDevice() && event->pointingDevice()->pointerType() == QPointingDevice::PointerType::Eraser);
 
     switch (pt.state()) {
     case QEventPoint::Pressed:
-        handlePointerPress(pt.position(), pressure, false);
+        handlePointerPress(pt.position(), pressure, eraser);
         break;
     case QEventPoint::Updated:
-        handlePointerMove(pt.position(), pressure);
+        handlePointerMove(pt.position(), pressure, eraser);
         break;
     case QEventPoint::Released:
         handlePointerRelease(pt.position());
@@ -658,7 +705,8 @@ void CanvasItem::touchEvent(QTouchEvent *event) {
 
 void CanvasItem::hoverMoveEvent(QHoverEvent *event) {
     m_hoverPos = event->position();
-    m_showEraserHover = (m_backend && m_backend->currentTool() == 2) || m_hardwareEraserActive;
+    const bool eraser = isStylusEraser(event->pointingDevice(), event->buttons());
+    m_showEraserHover = (m_backend && m_backend->currentTool() == 2) || eraser || m_hardwareEraserActive;
     if (m_showEraserHover) {
         update();
     }

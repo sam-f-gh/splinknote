@@ -1,88 +1,62 @@
-# SplinkNote v3 — Technical Feedback & Improvement Notes
+# SplinkNote v3 — Technical Feedback & Roadmap Backlog
 
-> **Document Purpose**: Task backlog and architectural plan recorded for immediate execution upon next session.  
-> **Source**: User feedback & visual inspection of desktop tiling comparison (Omawrite, Hype, Omacalc).
-
----
-
-## 1. Continuous Vertical Multi-Page Flow (Infinite / Natural Notebook Canvas)
-* **Problem**: Discrete pagination (`1 / 1` with `<` `>` and manual `+` button) creates friction for natural note-taking.
-* **Architecture Solution**:
-  * Implement continuous vertical page stacking: Page 1, Page 2, Page 3 rendered sequentially with a standard 36pt vertical gap.
-  * In blank notebook mode, automatically append new blank pages as the user scrolls or inks near the bottom of the last page.
-  * Update `pageScreenRect(int index)` and viewport frustum culling so only pages currently intersecting the viewport are painted.
-  * Map input coordinates dynamically via `pageIndexAtScreenPos(pos)` so strokes land on the correct page without modal navigation.
+> **Document Purpose**: Verified task backlog and architectural plan for SplinkNote v3 improvements.  
+> **Source**: User feedback & design alignment sessions.
 
 ---
 
-## 2. Touch Gestures & Status Bar Zoom Controls
-* **Touch Pinch-to-Zoom**:
-  * Track multi-touch points in `touchEvent(QTouchEvent *event)`. When two touch points are active, compute the ratio of current distance to initial distance, zooming smoothly around the gesture centroid.
-* **Status Bar Controls**:
-  * Add a compact, touch-friendly zoom cluster at the bottom-right corner of the window:
-    * `[-]` Zoom Out
-    * `[100%]` / `[Fit]` Toggle between 100% zoom and fit-to-width
-    * `[+]` Zoom In
-  * Hit targets sized to minimum 36×36px for finger/stylus precision.
+## Sprint 2: Core UX, Inking Boundary, and Input Refinements
 
----
-
-## 3. Hardware Stylus Eraser Tip & Barrel Buttons
-* **Hardware Eraser Tip**:
-  * Detect `QPointingDevice::PointerType::Eraser` in `QTabletEvent` and `QPointerEvent`. Automatically switch to the swept eraser when the physical stylus is flipped upside down, restoring the active tool upon flipping back.
-* **Barrel / Side Buttons**:
-  * Detect `Qt::RightButton` or `Qt::TaskButton` during pointer move/press. While held, temporarily engage the swept stroke eraser.
-* **Eraser Hover Footprint**:
-  * Render a subtle circular dashed indicator at the hover position when the eraser tip or barrel button is active, showing the exact swept strike radius before making contact.
-
----
-
-## 4. Tack-Sharp High-DPI Rendering (Poppler & Vector Strokes)
-* **Poppler External PDF Rasterization**:
-  * Replace fixed 150 DPI rendering with high-DPI supersampling:  
-    `dpi = 72.0 * devicePixelRatio * 2.0` (300+ DPI target) with `QImage::Format_ARGB32_Premultiplied` and smooth bilinear scaling.
-* **Vector Inking Pipeline**:
-  * Synchronize texture resolution with device pixel ratio:  
-    `setTextureSize(size().toSize() * devicePixelRatio())`.
-  * Set `QPainter::LosslessImageRendering` and `QPainter::SmoothPixmapTransform`.
-  * Ensure subpixel midpoint curve calculations use double-precision floating point.
-
----
-
-## 5. Highlighter Multi-Stroke Blending Fix
-* **Issue**: Multiple overlapping highlighter strokes currently experience composition clipping or dark overlap seams.
-* **Solution**:
-  * Highlighters should use uniform translucent alpha blending (e.g. `QColor(accent).setAlphaF(0.35)`) or render to an offscreen single-pass layer with `CompositionMode_Multiply` so overlapping strokes within the same gesture or page merge uniformly without dark blotches.
-
----
-
-## 6. Dynamic Theme-Reactive Canvas Background
-* **Issue**: Canvas workspace background was static `#1a1b26`.
-* **Solution**:
-  * Replace static color with `m_backend->themeBackground()` or pass `theme.background` to `CanvasItem`.
-  * Connect to `Theme::changed` signal so when the user changes desktop themes (e.g., Tokyo Night to Catppuccin, Gruvbox, Nord), the background updates immediately.
-
----
-
-## 7. Explicit Shortcut for Redo (<kbd>Ctrl</kbd> + <kbd>Y</kbd>)
-* **Issue**: On Linux/X11/Wayland, `StandardKey.Redo` frequently maps only to `Ctrl+Shift+Z`, causing `Ctrl+Y` to fail silently.
-* **Solution**:
-  * Add explicit shortcut in `Main.qml`:
-    ```qml
-    Shortcut {
-        sequence: "Ctrl+Y"
-        context: Qt.ApplicationShortcut
-        enabled: backend.hasDocument && backend.canRedo
-        onActivated: backend.redo()
-    }
-    ```
-
----
-
-## 8. Minimalist Contextual Shelf (Color & Size Palette)
+### 1. Centered Header Tool Cluster (`[Pen, Highlighter, Eraser]`)
+* **Objective**: True aesthetic symmetry in the top navigation pill ([ControlPill.qml](file:///home/sam/Work/splinknote/src/ControlPill.qml)).
 * **Design**:
-  * An unobtrusive, collapsible vertical pill docked to the left edge:
-    * When **Pen** is active: 4 curated ink dots (Theme Accent, Ink Dark, Crimson Red, Forest Green) + 3 stroke weights (Fine 1.5pt, Medium 3.0pt, Bold 5.0pt).
-    * When **Highlighter** is active: 3 pastel colors (Yellow, Cyan, Pink) + 2 chisel sizes.
-    * When **Eraser** is active: Small / Medium / Large radius.
-  * Auto-hides or collapses with a single tap to maximize writing space.
+  * Anchor the center tools directly to `horizontalCenter: parent.horizontalCenter` of the window.
+  * Implement responsive clamping/scrunching: if window width narrows in tiling mode, clamp the cluster between the left title section and right navigation/save section to avoid overlapping or clipping.
+
+### 2. Static Contextual Shelf (Remove Collapse Toggle)
+* **Objective**: Remove unnecessary buttons and UI noise in [ToolShelf.qml](file:///home/sam/Work/splinknote/src/ToolShelf.qml).
+* **Design**:
+  * Remove `‹` / `›` toggle button, `collapsed` state, and width animation.
+  * Shelf is a fixed, clean 50px pill docked to the left edge with curated color swatches and stroke size presets.
+
+### 3. Strict Page Boundaries (No Drawing Off the Page)
+* **Objective**: Drawing must be strictly confined to the page surface.
+* **Design**:
+  * In [canvasitem.cpp](file:///home/sam/Work/splinknote/src/canvasitem.cpp), apply `painter->setClipRect(pageRect)` when rendering vector strokes and highlighters so ink can never bleed into margins.
+  * Disallow starting inking strokes outside the page rect.
+
+### 4. Margin Scrolling (Vertical Page Navigation)
+* **Objective**: Natural tablet touch navigation without leaving accidental ink marks.
+* **Design**:
+  * Touching or dragging with finger or stylus **outside** the page (in the margin or page gaps) initiates vertical scrolling (`panY`).
+  * Inking occurs on the page; scrolling occurs in the margin.
+
+### 5. Smart Horizontal Panning Lock & Auto-Centering
+* **Objective**: Prevent lateral drift during reading and scrolling.
+* **Design**:
+  * When `pageWidth * zoom <= windowWidth`, lock horizontal panning (`panX = 0`) and keep the document centered.
+  * When `pageWidth * zoom > windowWidth` (zoomed in past full width), enable horizontal panning clamped to page edges.
+  * Auto-recenter: When zooming back out to fit or <= window width, automatically reset `panX = 0`.
+
+### 6. Direct Fast-Save vs. First-Time "Save As"
+* **Objective**: Eliminate repeated file dialog prompts on save in [backend.cpp](file:///home/sam/Work/splinknote/src/backend.cpp).
+* **Design**:
+  * If `currentFilePath` is non-empty (opened existing PDF or already saved once), clicking Save or pressing <kbd>Ctrl</kbd>+<kbd>S</kbd> writes directly to that file immediately with no dialog.
+  * If `currentFilePath` is empty (new untitled note), clicking Save triggers the portal file chooser (Save As) for the first save only, then remembers the path.
+
+### 7. Robust Stylus Hardware Eraser & Barrel Button Support
+* **Objective**: Reliable physical eraser tip and side barrel button detection across Wayland / libinput styluses.
+* **Design**:
+  * Inspect `QTabletEvent`, `QMouseEvent`, and `QPointerEvent`.
+  * Detect:
+    1. `pointingDevice()->pointerType() == QPointingDevice::PointerType::Eraser`
+    2. `buttons() & (Qt::RightButton | Qt::TaskButton | Qt::SecondaryButton | Qt::ExtraButton1)`
+  * Support dynamic mid-stroke switching: pressing the barrel button while drawing switches seamlessly into swept eraser mode without lifting the stylus.
+  * Show dashed hover indicator ring whenever the eraser button is held or eraser tip is active.
+
+### 8. Fixed Small-Point Precision Eraser (Immutable Size)
+* **Objective**: Prevent accidental broad erasing of adjacent notes; precision stylus eraser tip.
+* **Design**:
+  * Fix the eraser radius to a small precision point (~6.0pt).
+  * Remove mutable eraser size presets (Small/Medium/Large) from [ToolShelf.qml](file:///home/sam/Work/splinknote/src/ToolShelf.qml).
+  * Eraser tool shelf simply provides a clean "Clear Page" action button.

@@ -4,22 +4,18 @@ import QtQuick.Layouts
 
 Item {
     id: shelf
-    width: collapsed ? 24 : 52
-    height: contentColumn.implicitHeight + 28
-
-    property bool collapsed: false
-
-    Behavior on width { NumberAnimation { duration: 150; easing.type: Easing.OutQuad } }
+    width: 50
+    height: contentColumn.implicitHeight + 24
 
     Rectangle {
         anchors.fill: parent
         color: theme.darkBackground
-        radius: Math.min(theme.radius, 16)
+        radius: Math.min(theme.radius, 14)
         border.color: theme.lighterBackground
         border.width: 1
         opacity: 0.95
 
-        // Subtle shadow
+        // Subtle drop shadow
         Rectangle {
             z: -1
             anchors.fill: parent
@@ -28,43 +24,11 @@ Item {
             color: Qt.rgba(0, 0, 0, 0.25)
         }
 
-        // Toggle expand/collapse button
-        Rectangle {
-            id: toggleBtn
-            anchors.top: parent.top
-            anchors.topMargin: 4
-            anchors.horizontalCenter: parent.horizontalCenter
-            width: 32
-            height: 20
-            radius: 4
-            color: toggleArea.containsMouse ? theme.lighterBackground : "transparent"
-
-            Text {
-                anchors.centerIn: parent
-                text: shelf.collapsed ? "›" : "‹"
-                color: theme.foreground
-                font.family: "JetBrainsMono Nerd Font"
-                font.pixelSize: 13
-                font.bold: true
-            }
-
-            MouseArea {
-                id: toggleArea
-                anchors.fill: parent
-                hoverEnabled: true
-                cursorShape: Qt.PointingHandCursor
-                onClicked: shelf.collapsed = !shelf.collapsed
-            }
-        }
-
         // Main shelf options column
         ColumnLayout {
             id: contentColumn
-            anchors.top: toggleBtn.bottom
-            anchors.topMargin: 6
-            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.centerIn: parent
             spacing: 8
-            visible: !shelf.collapsed
 
             // 1. PEN TOOL SHELF
             ColumnLayout {
@@ -74,11 +38,11 @@ Item {
                 // Color Swatches
                 Repeater {
                     model: [
-                        { name: "accent", color: theme.accent },
-                        { name: "dark", color: theme.light ? "#18181c" : "#c0caf5" },
-                        { name: "red", color: "#f7768e" },
-                        { name: "green", color: "#9ece6a" },
-                        { name: "cyan", color: "#7dcfff" }
+                        { color: theme.accent },
+                        { color: theme.light ? "#18181c" : "#c0caf5" },
+                        { color: "#f7768e" },
+                        { color: "#9ece6a" },
+                        { color: "#7dcfff" }
                     ]
                     delegate: Rectangle {
                         id: penColorItem
@@ -246,45 +210,35 @@ Item {
                 }
             }
 
-            // 3. ERASER TOOL SHELF
+            // 3. ERASER TOOL SHELF (Fixed Precision Point, Clear Action)
             ColumnLayout {
-                spacing: 8
+                spacing: 12
                 visible: backend.currentTool === 2
 
-                // Eraser Radius Presets (Fine 10, Medium 18, Broad 32)
-                Repeater {
-                    model: [
-                        { radius: 10.0, ring: 12, label: "S" },
-                        { radius: 18.0, ring: 18, label: "M" },
-                        { radius: 32.0, ring: 24, label: "L" }
-                    ]
-                    delegate: Rectangle {
-                        id: eraserSizeItem
-                        required property var modelData
-                        width: 36
-                        height: 36
-                        radius: 8
-                        color: Math.abs(backend.eraserRadius - eraserSizeItem.modelData.radius) < 1.0
-                               ? theme.lighterBackground
-                               : (eraserSizeMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.05) : "transparent")
+                // Precision Point Indicator
+                Rectangle {
+                    width: 36
+                    height: 36
+                    radius: 8
+                    color: "transparent"
 
-                        Rectangle {
-                            anchors.centerIn: parent
-                            width: eraserSizeItem.modelData.ring
-                            height: eraserSizeItem.modelData.ring
-                            radius: eraserSizeItem.modelData.ring / 2
-                            color: "transparent"
-                            border.color: theme.foreground
-                            border.width: 1.5
-                        }
+                    Rectangle {
+                        anchors.centerIn: parent
+                        width: 8
+                        height: 8
+                        radius: 4
+                        color: "transparent"
+                        border.color: theme.foreground
+                        border.width: 1.5
+                    }
 
-                        MouseArea {
-                            id: eraserSizeMouse
-                            anchors.fill: parent
-                            hoverEnabled: true
-                            cursorShape: Qt.PointingHandCursor
-                            onClicked: backend.setEraserRadius(eraserSizeItem.modelData.radius)
-                        }
+                    ToolTip.visible: pointArea.containsMouse && !Qt.isTouchScreen
+                    ToolTip.text: qsTr("Precision Point Eraser")
+
+                    MouseArea {
+                        id: pointArea
+                        anchors.fill: parent
+                        hoverEnabled: true
                     }
                 }
 
@@ -305,8 +259,11 @@ Item {
                     Text {
                         anchors.centerIn: parent
                         text: "🗑"
-                        font.pixelSize: 14
+                        font.pixelSize: 15
                     }
+
+                    ToolTip.visible: clearMouse.containsMouse && !Qt.isTouchScreen
+                    ToolTip.text: qsTr("Clear Page")
 
                     MouseArea {
                         id: clearMouse

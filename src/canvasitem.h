@@ -47,6 +47,7 @@ public:
 
     QRectF pageScreenRect(int index) const;
     int pageIndexAtScreenPos(const QPointF &screenPos, QPointF *outPagePos = nullptr) const;
+    int pageIndexHit(const QPointF &screenPos, QPointF *outPagePos = nullptr) const;
 
 signals:
     void backendChanged();
@@ -67,8 +68,8 @@ protected:
 private:
     void checkAutoExpand();
     void updateActivePageIndexFromPan();
-    void handlePointerPress(const QPointF &pos, float pressure, bool isRightOrBarrel);
-    void handlePointerMove(const QPointF &pos, float pressure);
+    void handlePointerPress(const QPointF &pos, float pressure, bool isEraser);
+    void handlePointerMove(const QPointF &pos, float pressure, bool isEraser);
     void handlePointerRelease(const QPointF &pos);
 
     Backend *m_backend = nullptr;
@@ -80,6 +81,7 @@ private:
     bool m_isDrawing = false;
     bool m_isErasing = false;
     bool m_isPanning = false;
+    bool m_isMarginPanning = false;
     QPointF m_lastPanPos;
     QPointF m_lastPagePos;
     int m_activePageIndex = 0;

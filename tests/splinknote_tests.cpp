@@ -400,9 +400,10 @@ private slots:
         backend.setHighlighterWidth(26.0f);
         QCOMPARE(backend.highlighterWidth(), 26.0f);
 
-        // Eraser radius
-        backend.setEraserRadius(24.0f);
-        QCOMPARE(backend.eraserRadius(), 24.0f);
+        // Eraser radius (defaults to 6.0pt precision point)
+        QCOMPARE(backend.eraserRadius(), 6.0f);
+        backend.setEraserRadius(10.0f);
+        QCOMPARE(backend.eraserRadius(), 10.0f);
     }
 
     void multipleHighlighterStrokes() {
@@ -465,6 +466,81 @@ private slots:
         QPointF p1;
         int idx1 = canvas.pageIndexAtScreenPos(QPointF(r1.center().x(), r1.center().y()), &p1);
         QCOMPARE(idx1, 1);
+    }
+
+    void directSaveVersusSaveAs() {
+        FakeFilePicker picker;
+        Backend backend(&picker);
+        backend.newDocument();
+
+        // 1. New untitled document: saveDocument invokes file picker (Save As)
+        picker.m_saveCalled = false;
+        backend.saveDocument();
+        QCOMPARE(picker.m_saveCalled, true);
+
+        // 2. Once a file path exists, saveDocument directly saves without picker dialog
+        QTemporaryFile tmp;
+        QVERIFY(tmp.open());
+        const QString path = tmp.fileName();
+        tmp.close();
+
+        QVERIFY(backend.savePdfFile(path));
+        QCOMPARE(backend.currentFilePath(), path);
+
+        // Modify document
+        backend.addPage();
+        QCOMPARE(backend.hasUnsavedChanges(), true);
+
+        // Save again: should directly write without invoking file picker
+        picker.m_saveCalled = false;
+        backend.saveDocument();
+        QCOMPARE(picker.m_saveCalled, false);
+        QCOMPARE(backend.hasUnsavedChanges(), false);
+    }
+
+    void smartHorizontalPanLocking() {
+        Backend backend;
+        backend.newDocument();
+
+        CanvasItem canvas;
+        canvas.setBackend(&backend);
+        canvas.setSize(QSizeF(1000, 1000));
+        canvas.setZoom(1.0); // Page width is ~595.28 <= 1000 -> locked!
+
+        // Attempting to pan horizontally while page fits in width must stay locked to 0
+        canvas.setPanX(60.0);
+        QCOMPARE(canvas.panX(), 0.0);
+
+        // When zoomed in so page width exceeds window width (e.g. 595.28 * 2.0 = 1190.56 > 1000)
+        canvas.setZoom(2.0);
+        canvas.setPanX(40.0);
+        QCOMPARE(canvas.panX(), 40.0);
+
+        // When zooming back out so page fits in width, panX must auto-recenter to 0
+        canvas.setZoom(1.0);
+        QCOMPARE(canvas.panX(), 0.0);
+    }
+
+    void strictPageBoundaryHitTesting() {
+        Backend backend;
+        backend.newDocument();
+
+        CanvasItem canvas;
+        canvas.setBackend(&backend);
+        canvas.setSize(QSizeF(1000, 1000));
+        canvas.setZoom(1.0);
+        canvas.setPanX(0.0);
+        canvas.setPanY(0.0);
+
+        QRectF r0 = canvas.pageScreenRect(0);
+        QVERIFY(r0.isValid());
+
+        // Hit testing inside page
+        QCOMPARE(canvas.pageIndexHit(r0.center()), 0);
+
+        // Hit testing outside page in the margin
+        QPointF marginPoint(r0.left() - 50.0, r0.center().y());
+        QCOMPARE(canvas.pageIndexHit(marginPoint), -1);
     }
 
 private:
