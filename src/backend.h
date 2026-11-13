@@ -62,9 +62,10 @@ class Backend : public QObject {
     Q_PROPERTY(QString currentFilePath READ currentFilePath NOTIFY currentFilePathChanged)
     Q_PROPERTY(QString status READ status NOTIFY statusChanged)
     Q_PROPERTY(QColor penColor READ penColor WRITE setPenColor NOTIFY penColorChanged)
-    Q_PROPERTY(float penWidth READ penWidth NOTIFY penWidthChanged)
-    Q_PROPERTY(float highlighterWidth READ highlighterWidth NOTIFY highlighterWidthChanged)
-    Q_PROPERTY(float eraserRadius READ eraserRadius NOTIFY eraserRadiusChanged)
+    Q_PROPERTY(float penWidth READ penWidth WRITE setPenWidth NOTIFY penWidthChanged)
+    Q_PROPERTY(QColor highlighterColor READ highlighterColor WRITE setHighlighterColor NOTIFY highlighterColorChanged)
+    Q_PROPERTY(float highlighterWidth READ highlighterWidth WRITE setHighlighterWidth NOTIFY highlighterWidthChanged)
+    Q_PROPERTY(float eraserRadius READ eraserRadius WRITE setEraserRadius NOTIFY eraserRadiusChanged)
 
 public:
     explicit Backend(FilePicker *filePicker = nullptr, QObject *parent = nullptr);
@@ -84,6 +85,7 @@ public:
     QString status() const { return m_status; }
     QColor penColor() const { return m_penColor; }
     float penWidth() const { return m_penWidth; }
+    QColor highlighterColor() const { return m_highlighterColor; }
     float highlighterWidth() const { return m_highlighterWidth; }
     float eraserRadius() const { return m_eraserRadius; }
 
@@ -91,6 +93,11 @@ public:
     const DocumentPage *currentPage() const;
     DocumentPage *currentPage();
     const QVector<DocumentPage> &pages() const { return m_pages; }
+    DocumentPage *pageAt(int index);
+    const DocumentPage *pageAt(int index) const;
+
+    qreal pageTopWorld(int pageIndex) const;
+    qreal totalDocumentHeightWorld() const;
 
     Q_INVOKABLE void newDocument();
     Q_INVOKABLE void openDocument();
@@ -109,11 +116,18 @@ public:
     Q_INVOKABLE void undo();
     Q_INVOKABLE void redo();
     Q_INVOKABLE void setPenColor(const QColor &color);
+    Q_INVOKABLE void setPenWidth(float w);
+    Q_INVOKABLE void setHighlighterColor(const QColor &color);
+    Q_INVOKABLE void setHighlighterWidth(float w);
+    Q_INVOKABLE void setEraserRadius(float r);
     Q_INVOKABLE void setStatus(const QString &msg);
+    Q_INVOKABLE void autoExpandPages(int targetCount);
 
     // Inking and stroke methods
     void commitStroke(const Stroke &stroke);
+    void commitStroke(int pageIndex, const Stroke &stroke);
     bool eraseStrokes(const QPointF &p1, const QPointF &p2, float radius);
+    bool eraseStrokes(int pageIndex, const QPointF &p1, const QPointF &p2, float radius);
 
 signals:
     void hasDocumentChanged();
@@ -129,6 +143,7 @@ signals:
     void statusChanged();
     void penColorChanged();
     void penWidthChanged();
+    void highlighterColorChanged();
     void highlighterWidthChanged();
     void eraserRadiusChanged();
     void canvasNeedsRepaint();
@@ -146,10 +161,11 @@ private:
     QString m_currentFilePath;
     QString m_status;
 
-    QColor m_penColor = QColor("#18181c");
-    float m_penWidth = 2.0f;
-    float m_highlighterWidth = 16.0f;
-    float m_eraserRadius = 16.0f;
+    QColor m_penColor = QColor("#7aa2f7"); // Theme accent default
+    float m_penWidth = 2.5f;
+    QColor m_highlighterColor = QColor("#FFD60A");
+    float m_highlighterWidth = 18.0f;
+    float m_eraserRadius = 18.0f;
 
     QVector<DocumentPage> m_pages;
     QVector<HistoryCommand> m_undoStack;

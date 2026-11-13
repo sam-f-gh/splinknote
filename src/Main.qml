@@ -64,8 +64,9 @@ ApplicationWindow {
         onActivated: backend.undo()
     }
 
+    // Redo: explicit Ctrl+Y alongside StandardKey.Redo for robust Linux parity
     Shortcut {
-        sequences: [StandardKey.Redo]
+        sequences: [StandardKey.Redo, "Ctrl+Y"]
         context: Qt.ApplicationShortcut
         enabled: backend.hasDocument && backend.canRedo
         onActivated: backend.redo()
@@ -102,28 +103,40 @@ ApplicationWindow {
         sequence: "N"
         context: Qt.ApplicationShortcut
         enabled: backend.hasDocument
-        onActivated: backend.nextPage()
+        onActivated: {
+            backend.nextPage()
+            canvas.scrollToPage(backend.currentPageIndex)
+        }
     }
 
     Shortcut {
         sequence: "PageDown"
         context: Qt.ApplicationShortcut
         enabled: backend.hasDocument
-        onActivated: backend.nextPage()
+        onActivated: {
+            backend.nextPage()
+            canvas.scrollToPage(backend.currentPageIndex)
+        }
     }
 
     Shortcut {
         sequence: "B"
         context: Qt.ApplicationShortcut
         enabled: backend.hasDocument
-        onActivated: backend.previousPage()
+        onActivated: {
+            backend.previousPage()
+            canvas.scrollToPage(backend.currentPageIndex)
+        }
     }
 
     Shortcut {
         sequence: "PageUp"
         context: Qt.ApplicationShortcut
         enabled: backend.hasDocument
-        onActivated: backend.previousPage()
+        onActivated: {
+            backend.previousPage()
+            canvas.scrollToPage(backend.currentPageIndex)
+        }
     }
 
     Shortcut {
@@ -200,9 +213,10 @@ ApplicationWindow {
                 anchors.right: parent.right
                 height: 52
                 z: 10
+                canvasItem: canvas
             }
 
-            // High-DPI Canvas Item anchored cleanly below the header bar
+            // High-DPI Continuous Canvas Item anchored cleanly below the header bar
             CanvasItem {
                 id: canvas
                 anchors.top: pill.bottom
@@ -210,6 +224,18 @@ ApplicationWindow {
                 anchors.right: parent.right
                 anchors.bottom: parent.bottom
                 backend: win.appBackend
+                backgroundColor: theme.background
+            }
+
+            // Minimalist Contextual Shelf (docked to left edge)
+            ToolShelf {
+                id: toolShelf
+                anchors.left: parent.left
+                anchors.leftMargin: 12
+                anchors.top: pill.bottom
+                anchors.topMargin: 16
+                z: 20
+                visible: backend.hasDocument
             }
 
             // Status message at bottom-left corner
@@ -224,6 +250,73 @@ ApplicationWindow {
                 font.pixelSize: 11
                 opacity: text.length > 0 ? 0.9 : 0.0
                 Behavior on opacity { NumberAnimation { duration: 200 } }
+            }
+
+            // Touch-Friendly Zoom Controls cluster at bottom-right
+            Rectangle {
+                id: zoomPill
+                anchors.right: parent.right
+                anchors.rightMargin: 16
+                anchors.bottom: parent.bottom
+                anchors.bottomMargin: 12
+                width: zoomRow.implicitWidth + 12
+                height: 36
+                radius: Math.min(theme.radius, 10)
+                color: theme.darkBackground
+                border.color: theme.lighterBackground
+                border.width: 1
+                opacity: 0.95
+                z: 15
+
+                RowLayout {
+                    id: zoomRow
+                    anchors.centerIn: parent
+                    spacing: 2
+
+                    BarButton {
+                        text: "－"
+                        implicitWidth: 32
+                        implicitHeight: 30
+                        onClicked: canvas.zoomOut()
+                    }
+
+                    Rectangle {
+                        implicitWidth: 54
+                        implicitHeight: 30
+                        radius: 4
+                        color: fitArea.containsMouse ? theme.lighterBackground : "transparent"
+
+                        Text {
+                            anchors.centerIn: parent
+                            text: Math.round(canvas.zoom * 100) + "%"
+                            color: theme.foreground
+                            font.family: "JetBrainsMono Nerd Font"
+                            font.pixelSize: 11
+                            font.bold: true
+                        }
+
+                        MouseArea {
+                            id: fitArea
+                            anchors.fill: parent
+                            hoverEnabled: true
+                            cursorShape: Qt.PointingHandCursor
+                            onClicked: {
+                                if (Math.abs(canvas.zoom - 1.0) < 0.05) {
+                                    canvas.fitToWidth(canvas.width, canvas.height)
+                                } else {
+                                    canvas.resetView()
+                                }
+                            }
+                        }
+                    }
+
+                    BarButton {
+                        text: "＋"
+                        implicitWidth: 32
+                        implicitHeight: 30
+                        onClicked: canvas.zoomIn()
+                    }
+                }
             }
         }
 

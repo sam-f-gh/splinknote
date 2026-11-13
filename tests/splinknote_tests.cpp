@@ -319,6 +319,25 @@ private slots:
         Backend backend;
         backend.newDocument();
 
+        // Add a vibrant highlighter stroke and an ink pen stroke
+        Stroke hl;
+        hl.tool = 1;
+        hl.color = QColor("#FFD60A");
+        hl.width = 24.0f;
+        hl.points.append({100.0f, 100.0f, 0.5f});
+        hl.points.append({250.0f, 100.0f, 0.5f});
+        hl.points.append({400.0f, 100.0f, 0.5f});
+        backend.commitStroke(0, hl);
+
+        Stroke pen;
+        pen.tool = 0;
+        pen.color = QColor("#18181c");
+        pen.width = 3.0f;
+        pen.points.append({80.0f, 90.0f, 0.6f});
+        pen.points.append({250.0f, 120.0f, 0.8f});
+        pen.points.append({420.0f, 90.0f, 0.7f});
+        backend.commitStroke(0, pen);
+
         QQmlApplicationEngine engine;
         engine.rootContext()->setContextProperty("translator", &translator);
         engine.rootContext()->setContextProperty("theme", &theme);
@@ -343,7 +362,109 @@ private slots:
             QCOMPARE(backend.hasDocument(), true);
             QVERIFY(backend.pageCount() > 0);
             QVERIFY(!backend.currentPage()->pdfBackground.isNull());
+            // High-DPI supersampling produces crisp dimensions (>1000px at 300 DPI)
+            QVERIFY(backend.currentPage()->pdfBackground.width() > 1000);
         }
+    }
+
+    void multiPageContinuousLayout() {
+        Backend backend;
+        backend.newDocument();
+        QCOMPARE(backend.pageCount(), 1);
+        QCOMPARE(backend.pageTopWorld(0), 0.0);
+
+        backend.addPage();
+        QCOMPARE(backend.pageCount(), 2);
+        const qreal expectedPage1Top = backend.pageAt(0)->height + 32.0;
+        QCOMPARE(backend.pageTopWorld(1), expectedPage1Top);
+        QCOMPARE(backend.totalDocumentHeightWorld(), backend.pageAt(0)->height + backend.pageAt(1)->height + 32.0);
+
+        // Auto-expand notebook pages
+        backend.autoExpandPages(4);
+        QCOMPARE(backend.pageCount(), 4);
+    }
+
+    void stylusAndToolProperties() {
+        Backend backend;
+        backend.newDocument();
+
+        // Pen width and color
+        backend.setPenWidth(3.5f);
+        QCOMPARE(backend.penWidth(), 3.5f);
+        backend.setPenColor(QColor("#f7768e"));
+        QCOMPARE(backend.penColor(), QColor("#f7768e"));
+
+        // Highlighter color and width
+        backend.setHighlighterColor(QColor("#70c0e8"));
+        QCOMPARE(backend.highlighterColor(), QColor("#70c0e8"));
+        backend.setHighlighterWidth(26.0f);
+        QCOMPARE(backend.highlighterWidth(), 26.0f);
+
+        // Eraser radius
+        backend.setEraserRadius(24.0f);
+        QCOMPARE(backend.eraserRadius(), 24.0f);
+    }
+
+    void multipleHighlighterStrokes() {
+        Backend backend;
+        backend.newDocument();
+
+        // Commit multiple highlighter strokes on page 0
+        Stroke h1;
+        h1.tool = 1;
+        h1.color = QColor("#FFD60A");
+        h1.width = 18.0f;
+        h1.points.append({50.0f, 50.0f, 0.5f});
+        h1.points.append({150.0f, 50.0f, 0.5f});
+        backend.commitStroke(0, h1);
+
+        Stroke h2;
+        h2.tool = 1;
+        h2.color = QColor("#70C0E8");
+        h2.width = 18.0f;
+        h2.points.append({50.0f, 100.0f, 0.5f});
+        h2.points.append({150.0f, 100.0f, 0.5f});
+        backend.commitStroke(0, h2);
+
+        QCOMPARE(backend.pageAt(0)->strokes.size(), 2);
+        QCOMPARE(backend.pageAt(0)->strokes[0].tool, 1);
+        QCOMPARE(backend.pageAt(0)->strokes[1].tool, 1);
+
+        // Undo and redo
+        backend.undo();
+        QCOMPARE(backend.pageAt(0)->strokes.size(), 1);
+        backend.redo();
+        QCOMPARE(backend.pageAt(0)->strokes.size(), 2);
+    }
+
+    void continuousCanvasCoordinateMapping() {
+        Backend backend;
+        backend.newDocument();
+        backend.addPage();
+        QCOMPARE(backend.pageCount(), 2);
+
+        CanvasItem canvas;
+        canvas.setBackend(&backend);
+        canvas.setSize(QSizeF(1000, 2000));
+        canvas.setZoom(1.0);
+        canvas.setPanX(0.0);
+        canvas.setPanY(0.0);
+
+        QRectF r0 = canvas.pageScreenRect(0);
+        QRectF r1 = canvas.pageScreenRect(1);
+        QVERIFY(r0.isValid());
+        QVERIFY(r1.isValid());
+        QVERIFY(r1.top() > r0.bottom());
+
+        // Screen pos on page 0
+        QPointF p0;
+        int idx0 = canvas.pageIndexAtScreenPos(QPointF(r0.center().x(), r0.center().y()), &p0);
+        QCOMPARE(idx0, 0);
+
+        // Screen pos on page 1
+        QPointF p1;
+        int idx1 = canvas.pageIndexAtScreenPos(QPointF(r1.center().x(), r1.center().y()), &p1);
+        QCOMPARE(idx1, 1);
     }
 
 private:

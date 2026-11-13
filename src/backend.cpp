@@ -126,6 +126,40 @@ DocumentPage *Backend::currentPage() {
     return nullptr;
 }
 
+DocumentPage *Backend::pageAt(int index) {
+    if (index >= 0 && index < m_pages.size())
+        return &m_pages[index];
+    return nullptr;
+}
+
+const DocumentPage *Backend::pageAt(int index) const {
+    if (index >= 0 && index < m_pages.size())
+        return &m_pages[index];
+    return nullptr;
+}
+
+static constexpr qreal PAGE_VERTICAL_GAP = 32.0;
+
+qreal Backend::pageTopWorld(int pageIndex) const {
+    qreal top = 0.0;
+    for (int i = 0; i < pageIndex && i < m_pages.size(); ++i) {
+        top += m_pages[i].height + PAGE_VERTICAL_GAP;
+    }
+    return top;
+}
+
+qreal Backend::totalDocumentHeightWorld() const {
+    if (m_pages.isEmpty())
+        return 0.0;
+    qreal total = 0.0;
+    for (int i = 0; i < m_pages.size(); ++i) {
+        total += m_pages[i].height;
+        if (i > 0)
+            total += PAGE_VERTICAL_GAP;
+    }
+    return total;
+}
+
 void Backend::newDocument() {
     m_pages.clear();
     clearHistory();
@@ -303,6 +337,37 @@ void Backend::setPenColor(const QColor &color) {
     }
 }
 
+void Backend::setPenWidth(float w) {
+    w = std::clamp(w, 0.5f, 24.0f);
+    if (!qFuzzyCompare(m_penWidth, w)) {
+        m_penWidth = w;
+        emit penWidthChanged();
+    }
+}
+
+void Backend::setHighlighterColor(const QColor &color) {
+    if (color.isValid() && color != m_highlighterColor) {
+        m_highlighterColor = color;
+        emit highlighterColorChanged();
+    }
+}
+
+void Backend::setHighlighterWidth(float w) {
+    w = std::clamp(w, 4.0f, 64.0f);
+    if (!qFuzzyCompare(m_highlighterWidth, w)) {
+        m_highlighterWidth = w;
+        emit highlighterWidthChanged();
+    }
+}
+
+void Backend::setEraserRadius(float r) {
+    r = std::clamp(r, 4.0f, 80.0f);
+    if (!qFuzzyCompare(m_eraserRadius, r)) {
+        m_eraserRadius = r;
+        emit eraserRadiusChanged();
+    }
+}
+
 void Backend::setStatus(const QString &msg) {
     if (msg != m_status) {
         m_status = msg;
@@ -310,8 +375,32 @@ void Backend::setStatus(const QString &msg) {
     }
 }
 
+void Backend::autoExpandPages(int targetCount) {
+    if (!m_isSplinkNoteOrigin || m_pages.isEmpty())
+        return;
+    if (targetCount <= m_pages.size())
+        return;
+
+    const float stdW = m_pages.first().width;
+    const float stdH = m_pages.first().height;
+
+    while (m_pages.size() < targetCount) {
+        DocumentPage p;
+        p.id = m_pages.size() + 1;
+        p.width = stdW;
+        p.height = stdH;
+        m_pages.append(p);
+    }
+    emit pageCountChanged();
+    emit canvasNeedsRepaint();
+}
+
 void Backend::commitStroke(const Stroke &stroke) {
-    DocumentPage *page = currentPage();
+    commitStroke(m_currentPageIndex, stroke);
+}
+
+void Backend::commitStroke(int pageIndex, const Stroke &stroke) {
+    DocumentPage *page = pageAt(pageIndex);
     if (!page)
         return;
 
@@ -321,7 +410,7 @@ void Backend::commitStroke(const Stroke &stroke) {
 
     HistoryCommand cmd;
     cmd.type = HistoryType::AddStroke;
-    cmd.pageIndex = m_currentPageIndex;
+    cmd.pageIndex = pageIndex;
     cmd.strokes.append(s);
     pushUndoCommand(cmd);
 
@@ -331,7 +420,11 @@ void Backend::commitStroke(const Stroke &stroke) {
 }
 
 bool Backend::eraseStrokes(const QPointF &p1, const QPointF &p2, float radius) {
-    DocumentPage *page = currentPage();
+    return eraseStrokes(m_currentPageIndex, p1, p2, radius);
+}
+
+bool Backend::eraseStrokes(int pageIndex, const QPointF &p1, const QPointF &p2, float radius) {
+    DocumentPage *page = pageAt(pageIndex);
     if (!page || page->strokes.isEmpty())
         return false;
 
@@ -369,7 +462,7 @@ bool Backend::eraseStrokes(const QPointF &p1, const QPointF &p2, float radius) {
     if (!erasedStrokes.isEmpty()) {
         HistoryCommand cmd;
         cmd.type = HistoryType::EraseStrokes;
-        cmd.pageIndex = m_currentPageIndex;
+        cmd.pageIndex = pageIndex;
         cmd.strokes = erasedStrokes;
         pushUndoCommand(cmd);
 
@@ -715,10 +808,9 @@ bool Backend::openPdfFile(const QString &filePath) {
                 hasExternalBg = pObj.value("hasExternalBg").toBool();
         }
 
-        // Only render the Poppler background raster image if it's an external PDF
-        // or a document that had an external background
+        // Render Poppler background at high-DPI supersampling (300 DPI) for tack-sharp text
         if (hasExternalBg) {
-            page.pdfBackground = popplerPage->renderToImage(150.0, 150.0);
+            page.pdfBackground = popplerPage->renderToImage(300.0, 300.0);
         }
 
         // Rehydrate embedded strokes if available

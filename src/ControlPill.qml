@@ -6,6 +6,7 @@ import QtQuick.Layouts
 Rectangle {
     id: root
 
+    property var canvasItem: null
     implicitHeight: 52
     color: theme.darkBackground
 
@@ -151,7 +152,10 @@ Rectangle {
             BarButton {
                 iconText: "‹"
                 enabled: backend.currentPageIndex > 0
-                onClicked: backend.previousPage()
+                onClicked: {
+                    backend.previousPage()
+                    if (root.canvasItem) root.canvasItem.scrollToPage(backend.currentPageIndex)
+                }
             }
 
             Text {
@@ -168,7 +172,10 @@ Rectangle {
             BarButton {
                 iconText: "›"
                 enabled: backend.currentPageIndex < backend.pageCount - 1
-                onClicked: backend.nextPage()
+                onClicked: {
+                    backend.nextPage()
+                    if (root.canvasItem) root.canvasItem.scrollToPage(backend.currentPageIndex)
+                }
             }
 
             BarButton {
