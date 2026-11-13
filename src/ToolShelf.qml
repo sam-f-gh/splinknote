@@ -35,11 +35,11 @@ Item {
                 spacing: 8
                 visible: backend.currentTool === 0
 
-                // Color Swatches
+                // Color Swatches (Black is the default primary color)
                 Repeater {
                     model: [
+                        { color: "#18181c" }, // True ink black default
                         { color: theme.accent },
-                        { color: theme.light ? "#18181c" : "#c0caf5" },
                         { color: "#f7768e" },
                         { color: "#9ece6a" },
                         { color: "#7dcfff" }
@@ -73,6 +73,11 @@ Item {
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
                             onClicked: backend.setPenColor(penColorItem.modelData.color)
+                            onDoubleClicked: {
+                                colorPicker.x = shelf.width + 6
+                                colorPicker.y = Math.max(0, penColorItem.mapToItem(shelf, 0, 0).y - 40)
+                                colorPicker.open()
+                            }
                         }
                     }
                 }
@@ -162,6 +167,11 @@ Item {
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
                             onClicked: backend.setHighlighterColor(hlColorItem.modelData.color)
+                            onDoubleClicked: {
+                                colorPicker.x = shelf.width + 6
+                                colorPicker.y = Math.max(0, hlColorItem.mapToItem(shelf, 0, 0).y - 40)
+                                colorPicker.open()
+                            }
                         }
                     }
                 }
@@ -210,46 +220,11 @@ Item {
                 }
             }
 
-            // 3. ERASER TOOL SHELF (Fixed Precision Point, Clear Action)
+            // 3. ERASER TOOL SHELF (Clear Page Action, no redundant size dot)
             ColumnLayout {
-                spacing: 12
+                spacing: 8
                 visible: backend.currentTool === 2
 
-                // Precision Point Indicator
-                Rectangle {
-                    width: 36
-                    height: 36
-                    radius: 8
-                    color: "transparent"
-
-                    Rectangle {
-                        anchors.centerIn: parent
-                        width: 8
-                        height: 8
-                        radius: 4
-                        color: "transparent"
-                        border.color: theme.foreground
-                        border.width: 1.5
-                    }
-
-                    ToolTip.visible: pointArea.containsMouse && !Qt.isTouchScreen
-                    ToolTip.text: qsTr("Precision Point Eraser")
-
-                    MouseArea {
-                        id: pointArea
-                        anchors.fill: parent
-                        hoverEnabled: true
-                    }
-                }
-
-                Rectangle {
-                    Layout.alignment: Qt.AlignHCenter
-                    width: 24
-                    height: 1
-                    color: theme.lighterBackground
-                }
-
-                // Quick Clear Page Button
                 Rectangle {
                     width: 36
                     height: 36
@@ -258,8 +233,10 @@ Item {
 
                     Text {
                         anchors.centerIn: parent
-                        text: "🗑"
-                        font.pixelSize: 15
+                        text: "󰇚"
+                        font.family: "JetBrainsMono Nerd Font"
+                        font.pixelSize: 18
+                        color: clearMouse.containsMouse ? "#f7768e" : theme.foreground
                     }
 
                     ToolTip.visible: clearMouse.containsMouse && !Qt.isTouchScreen
@@ -277,6 +254,18 @@ Item {
                         }
                     }
                 }
+            }
+        }
+    }
+
+    // Floating Word-Style Grid Color Picker Popup
+    ColorGridPicker {
+        id: colorPicker
+        onColorPicked: function(chosenColor) {
+            if (backend.currentTool === 1) {
+                backend.setHighlighterColor(chosenColor)
+            } else {
+                backend.setPenColor(chosenColor)
             }
         }
     }

@@ -9,13 +9,18 @@ Rectangle {
     color: "#b3000000"
     visible: false
 
+    property string title: qsTr("Confirm")
     property string message: qsTr("You have unsaved changes. Discard them?")
+    property string confirmButtonText: qsTr("Confirm")
+    property var confirmCallback: null
     signal confirmed()
     signal cancelled()
 
-    function ask(msg, onConfirm) {
+    function ask(msg, onConfirm, dlgTitle, btnText) {
         if (msg) message = msg;
-        root.confirmed.connect(onConfirm);
+        title = dlgTitle ? dlgTitle : qsTr("Confirm");
+        confirmButtonText = btnText ? btnText : qsTr("Confirm");
+        confirmCallback = onConfirm;
         root.visible = true;
     }
 
@@ -23,6 +28,7 @@ Rectangle {
         anchors.fill: parent
         onClicked: {
             root.visible = false;
+            root.confirmCallback = null;
             root.cancelled();
         }
     }
@@ -43,7 +49,7 @@ Rectangle {
             spacing: 20
 
             Text {
-                text: qsTr("Unsaved Changes")
+                text: root.title
                 font.family: "JetBrainsMono Nerd Font"
                 font.pixelSize: 16
                 font.bold: true
@@ -69,16 +75,20 @@ Rectangle {
                     text: qsTr("Cancel")
                     onClicked: {
                         root.visible = false;
+                        root.confirmCallback = null;
                         root.cancelled();
                     }
                 }
 
                 BarButton {
-                    text: qsTr("Discard")
+                    text: root.confirmButtonText
                     active: true
                     onClicked: {
                         root.visible = false;
+                        var cb = root.confirmCallback;
+                        root.confirmCallback = null;
                         root.confirmed();
+                        if (cb) cb();
                     }
                 }
             }

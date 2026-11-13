@@ -52,6 +52,7 @@ class Backend : public QObject {
     Q_PROPERTY(bool hasDocument READ hasDocument NOTIFY hasDocumentChanged)
     Q_PROPERTY(int currentTool READ currentTool WRITE setCurrentTool NOTIFY toolChanged)
     Q_PROPERTY(int pageCount READ pageCount NOTIFY pageCountChanged)
+    Q_PROPERTY(int effectivePageCount READ effectivePageCount NOTIFY effectivePageCountChanged)
     Q_PROPERTY(int currentPageIndex READ currentPageIndex WRITE setCurrentPageIndex NOTIFY currentPageIndexChanged)
     Q_PROPERTY(float pageWidth READ pageWidth NOTIFY pageDimensionsChanged)
     Q_PROPERTY(float pageHeight READ pageHeight NOTIFY pageDimensionsChanged)
@@ -74,6 +75,7 @@ public:
     bool hasDocument() const { return m_hasDocument; }
     int currentTool() const { return m_currentTool; }
     int pageCount() const { return m_pages.size(); }
+    int effectivePageCount() const;
     int currentPageIndex() const { return m_currentPageIndex; }
     float pageWidth() const;
     float pageHeight() const;
@@ -133,6 +135,7 @@ signals:
     void hasDocumentChanged();
     void toolChanged();
     void pageCountChanged();
+    void effectivePageCountChanged();
     void currentPageIndexChanged();
     void pageDimensionsChanged();
     void isSplinkNoteOriginChanged();
@@ -161,7 +164,7 @@ private:
     QString m_currentFilePath;
     QString m_status;
 
-    QColor m_penColor = QColor("#7aa2f7"); // Theme accent default
+    QColor m_penColor = QColor("#18181c"); // True ink black default
     float m_penWidth = 2.5f;
     QColor m_highlighterColor = QColor("#FFD60A");
     float m_highlighterWidth = 18.0f;

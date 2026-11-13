@@ -17,12 +17,12 @@ Rectangle {
 
     color: !enabled ? "transparent"
          : active ? theme.accent
-         : mouseArea.containsPress ? "#383a42"
-         : mouseArea.containsMouse ? "#282a30"
+         : mouseArea.containsPress ? (theme.light ? Qt.darker(theme.background, 1.15) : Qt.lighter(theme.background, 1.25))
+         : mouseArea.containsMouse ? (theme.light ? Qt.darker(theme.background, 1.08) : Qt.lighter(theme.background, 1.15))
          : "transparent"
 
     border.color: active ? "transparent"
-                : mouseArea.containsMouse ? "#454852"
+                : mouseArea.containsMouse ? (theme.light ? Qt.darker(theme.background, 1.25) : Qt.lighter(theme.background, 1.35))
                 : "transparent"
     border.width: 1
 
@@ -40,7 +40,7 @@ Rectangle {
             font.family: "JetBrainsMono Nerd Font"
             font.pixelSize: 18
             font.bold: true
-            color: root.active ? theme.accentForeground : "#e2e4e9"
+            color: root.active ? theme.accentForeground : theme.foreground
         }
 
         Text {
@@ -50,7 +50,7 @@ Rectangle {
             font.family: "JetBrainsMono Nerd Font"
             font.pixelSize: 13
             font.bold: root.active
-            color: root.active ? theme.accentForeground : "#d0d3dc"
+            color: root.active ? theme.accentForeground : theme.foreground
         }
     }
 

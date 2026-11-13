@@ -30,7 +30,7 @@ Item {
 
                 Text {
                     anchors.centerIn: parent
-                    text: "✎"
+                    text: "󰏫"
                     font.family: "JetBrainsMono Nerd Font"
                     font.pixelSize: 32
                     color: theme.accentForeground
@@ -125,7 +125,7 @@ Item {
 
                     Text {
                         Layout.alignment: Qt.AlignHCenter
-                        text: "📁"
+                        text: "󰉋"
                         font.family: "JetBrainsMono Nerd Font"
                         font.pixelSize: 26
                         color: theme.foreground

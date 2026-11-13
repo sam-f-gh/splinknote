@@ -160,6 +160,20 @@ qreal Backend::totalDocumentHeightWorld() const {
     return total;
 }
 
+int Backend::effectivePageCount() const {
+    if (m_pages.isEmpty())
+        return 0;
+
+    int lastDataIdx = 0; // Page 1 is always included
+    for (int i = m_pages.size() - 1; i >= 0; --i) {
+        if (!m_pages[i].strokes.isEmpty() || !m_pages[i].pdfBackground.isNull()) {
+            lastDataIdx = i;
+            break;
+        }
+    }
+    return lastDataIdx + 1;
+}
+
 void Backend::newDocument() {
     m_pages.clear();
     clearHistory();
@@ -175,9 +189,12 @@ void Backend::newDocument() {
     m_isSplinkNoteOrigin = true;
     m_hasUnsavedChanges = false;
     m_currentFilePath.clear();
+    m_penColor = QColor("#18181c"); // Default to ink black
 
     emit hasDocumentChanged();
     emit pageCountChanged();
+    emit effectivePageCountChanged();
+    emit penColorChanged();
     emit currentPageIndexChanged();
     emit pageDimensionsChanged();
     emit isSplinkNoteOriginChanged();
@@ -204,6 +221,7 @@ void Backend::closeDocument() {
 
     emit hasDocumentChanged();
     emit pageCountChanged();
+    emit effectivePageCountChanged();
     emit currentPageIndexChanged();
     emit currentFilePathChanged();
     emit hasUnsavedChangesChanged();
@@ -261,9 +279,10 @@ void Backend::previousPage() {
 }
 
 void Backend::addPage() {
-    if (!m_hasDocument)
+    if (!m_hasDocument || m_pages.isEmpty())
         return;
 
+    const int insertIdx = m_currentPageIndex + 1;
     DocumentPage newPage;
     newPage.id = m_pages.size() + 1;
     const DocumentPage *cur = currentPage();
@@ -271,21 +290,22 @@ void Backend::addPage() {
         newPage.width = cur->width;
         newPage.height = cur->height;
     }
-    m_pages.append(newPage);
-    m_currentPageIndex = m_pages.size() - 1;
+    m_pages.insert(insertIdx, newPage);
+    m_currentPageIndex = insertIdx;
 
     HistoryCommand cmd;
     cmd.type = HistoryType::AddPage;
-    cmd.pageIndex = m_currentPageIndex;
+    cmd.pageIndex = insertIdx;
     pushUndoCommand(cmd);
 
     m_hasUnsavedChanges = true;
     emit pageCountChanged();
+    emit effectivePageCountChanged();
     emit currentPageIndexChanged();
     emit pageDimensionsChanged();
     emit hasUnsavedChangesChanged();
     emit canvasNeedsRepaint();
-    setStatus(tr("Added page %1").arg(m_pages.size()));
+    setStatus(tr("Added page %1").arg(insertIdx + 1));
 }
 
 void Backend::deleteCurrentPage() {
@@ -294,18 +314,20 @@ void Backend::deleteCurrentPage() {
         return;
     }
 
+    const int deleteIdx = m_currentPageIndex;
     HistoryCommand cmd;
     cmd.type = HistoryType::DeletePage;
-    cmd.pageIndex = m_currentPageIndex;
-    cmd.deletedPage = m_pages[m_currentPageIndex];
+    cmd.pageIndex = deleteIdx;
+    cmd.deletedPage = m_pages[deleteIdx];
     pushUndoCommand(cmd);
 
-    m_pages.removeAt(m_currentPageIndex);
+    m_pages.removeAt(deleteIdx);
     if (m_currentPageIndex >= m_pages.size())
-        m_currentPageIndex = m_pages.size() - 1;
+        m_currentPageIndex = std::max(0, static_cast<int>(m_pages.size() - 1));
 
     m_hasUnsavedChanges = true;
     emit pageCountChanged();
+    emit effectivePageCountChanged();
     emit currentPageIndexChanged();
     emit pageDimensionsChanged();
     emit hasUnsavedChangesChanged();
@@ -326,6 +348,7 @@ void Backend::clearCurrentPage() {
 
     page->strokes.clear();
     m_hasUnsavedChanges = true;
+    emit effectivePageCountChanged();
     emit hasUnsavedChangesChanged();
     emit canvasNeedsRepaint();
     setStatus(tr("Cleared page"));
@@ -416,6 +439,7 @@ void Backend::commitStroke(int pageIndex, const Stroke &stroke) {
     pushUndoCommand(cmd);
 
     m_hasUnsavedChanges = true;
+    emit effectivePageCountChanged();
     emit hasUnsavedChangesChanged();
     emit canvasNeedsRepaint();
 }
@@ -468,6 +492,7 @@ bool Backend::eraseStrokes(int pageIndex, const QPointF &p1, const QPointF &p2, 
         pushUndoCommand(cmd);
 
         m_hasUnsavedChanges = true;
+        emit effectivePageCountChanged();
         emit hasUnsavedChangesChanged();
         emit canvasNeedsRepaint();
         return true;
@@ -501,7 +526,10 @@ void Backend::undo() {
             m_pages.removeAt(cmd.pageIndex);
             if (m_currentPageIndex >= m_pages.size())
                 m_currentPageIndex = std::max(0, static_cast<int>(m_pages.size() - 1));
+            else if (m_currentPageIndex >= cmd.pageIndex)
+                m_currentPageIndex = std::max(0, m_currentPageIndex - 1);
             emit pageCountChanged();
+            emit effectivePageCountChanged();
             emit currentPageIndexChanged();
             emit pageDimensionsChanged();
         }
@@ -510,6 +538,7 @@ void Backend::undo() {
         m_pages.insert(idx, cmd.deletedPage);
         m_currentPageIndex = idx;
         emit pageCountChanged();
+        emit effectivePageCountChanged();
         emit currentPageIndexChanged();
         emit pageDimensionsChanged();
     } else {
@@ -542,6 +571,7 @@ void Backend::undo() {
     m_redoStack.append(cmd);
     emit canUndoChanged();
     emit canRedoChanged();
+    emit effectivePageCountChanged();
     emit canvasNeedsRepaint();
     setStatus(tr("Undone"));
 }
@@ -555,9 +585,13 @@ void Backend::redo() {
     if (cmd.type == HistoryType::AddPage) {
         DocumentPage newPage;
         newPage.id = m_pages.size() + 1;
-        m_pages.append(newPage);
-        m_currentPageIndex = m_pages.size() - 1;
+        newPage.width = m_pages.isEmpty() ? 595.28f : m_pages.first().width;
+        newPage.height = m_pages.isEmpty() ? 842.0f : m_pages.first().height;
+        const int idx = std::min(cmd.pageIndex, static_cast<int>(m_pages.size()));
+        m_pages.insert(idx, newPage);
+        m_currentPageIndex = idx;
         emit pageCountChanged();
+        emit effectivePageCountChanged();
         emit currentPageIndexChanged();
         emit pageDimensionsChanged();
     } else if (cmd.type == HistoryType::DeletePage) {
@@ -566,6 +600,7 @@ void Backend::redo() {
             if (m_currentPageIndex >= m_pages.size())
                 m_currentPageIndex = std::max(0, static_cast<int>(m_pages.size() - 1));
             emit pageCountChanged();
+            emit effectivePageCountChanged();
             emit currentPageIndexChanged();
             emit pageDimensionsChanged();
         }
@@ -599,6 +634,7 @@ void Backend::redo() {
     m_undoStack.append(cmd);
     emit canUndoChanged();
     emit canRedoChanged();
+    emit effectivePageCountChanged();
     emit canvasNeedsRepaint();
     setStatus(tr("Redone"));
 }
@@ -626,8 +662,9 @@ bool Backend::savePdfFile(const QString &filePath) {
 
     painter.setRenderHint(QPainter::Antialiasing, true);
     const qreal scaleDpi = 300.0 / 72.0;
+    const int saveCount = effectivePageCount();
 
-    for (int pageIdx = 0; pageIdx < m_pages.size(); ++pageIdx) {
+    for (int pageIdx = 0; pageIdx < saveCount; ++pageIdx) {
         const DocumentPage &p = m_pages[pageIdx];
         if (pageIdx > 0)
             writer.newPage();
@@ -675,10 +712,10 @@ bool Backend::savePdfFile(const QString &filePath) {
     rootObj["v"] = 3;
     rootObj["generator"] = QStringLiteral("SplinkNote v3");
     rootObj["splinkOrigin"] = m_isSplinkNoteOrigin;
-    rootObj["pageCount"] = m_pages.size();
+    rootObj["pageCount"] = saveCount;
 
     QJsonArray pagesArray;
-    for (int i = 0; i < m_pages.size(); ++i) {
+    for (int i = 0; i < saveCount; ++i) {
         const DocumentPage &p = m_pages[i];
         QJsonObject pageObj;
         pageObj["page"] = i;
@@ -861,6 +898,7 @@ bool Backend::openPdfFile(const QString &filePath) {
 
     emit hasDocumentChanged();
     emit pageCountChanged();
+    emit effectivePageCountChanged();
     emit currentPageIndexChanged();
     emit pageDimensionsChanged();
     emit isSplinkNoteOriginChanged();

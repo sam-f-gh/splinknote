@@ -28,12 +28,12 @@ Rectangle {
         spacing: 8
 
         BarButton {
-            iconText: "⌂"
+            iconText: "󰋜"
             onClicked: {
                 if (backend.hasUnsavedChanges) {
                     confirmDialog.ask(qsTr("Close note and discard unsaved changes?"), function() {
                         backend.closeDocument()
-                    })
+                    }, qsTr("Close Note"), qsTr("Discard"))
                 } else {
                     backend.closeDocument()
                 }
@@ -93,7 +93,7 @@ Rectangle {
         spacing: 4
 
         BarButton {
-            iconText: "↶"
+            iconText: "󰕌"
             enabled: backend.canUndo
             onClicked: backend.undo()
             ToolTip.visible: hovered && !Qt.isTouchScreen
@@ -101,7 +101,7 @@ Rectangle {
         }
 
         BarButton {
-            iconText: "↷"
+            iconText: "󰑎"
             enabled: backend.canRedo
             onClicked: backend.redo()
             ToolTip.visible: hovered && !Qt.isTouchScreen
@@ -126,7 +126,7 @@ Rectangle {
         }
 
         Text {
-            text: qsTr("%1 / %2").arg(backend.currentPageIndex + 1).arg(Math.max(1, backend.pageCount))
+            text: qsTr("%1 / %2").arg(backend.currentPageIndex + 1).arg(Math.max(backend.currentPageIndex + 1, backend.effectivePageCount))
             font.family: "JetBrainsMono Nerd Font"
             font.pixelSize: 12
             font.bold: true
@@ -150,6 +150,19 @@ Rectangle {
             onClicked: backend.addPage()
             ToolTip.visible: hovered && !Qt.isTouchScreen
             ToolTip.text: qsTr("Add Page (+)")
+        }
+
+        BarButton {
+            iconText: "－"
+            enabled: backend.pageCount > 1
+            ToolTip.visible: hovered && !Qt.isTouchScreen
+            ToolTip.text: qsTr("Delete Page")
+            onClicked: {
+                confirmDialog.ask(qsTr("Delete page %1?").arg(backend.currentPageIndex + 1), function() {
+                    backend.deleteCurrentPage()
+                    if (root.canvasItem) root.canvasItem.scrollToPage(backend.currentPageIndex)
+                }, qsTr("Delete Page"), qsTr("Delete"))
+            }
         }
 
         Rectangle {
@@ -184,21 +197,21 @@ Rectangle {
         }
 
         BarButton {
-            iconText: "✎"
+            iconText: "󰏫"
             text: qsTr("Pen")
             active: backend.currentTool === 0
             onClicked: backend.setCurrentTool(0)
         }
 
         BarButton {
-            iconText: "🖍"
+            iconText: "󰋔"
             text: qsTr("Highlighter")
             active: backend.currentTool === 1
             onClicked: backend.setCurrentTool(1)
         }
 
         BarButton {
-            iconText: "⌫"
+            iconText: "󰇼"
             text: qsTr("Eraser")
             active: backend.currentTool === 2
             onClicked: backend.setCurrentTool(2)

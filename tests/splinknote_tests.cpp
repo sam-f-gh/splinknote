@@ -543,6 +543,114 @@ private slots:
         QCOMPARE(canvas.pageIndexHit(marginPoint), -1);
     }
 
+    void insertPageAfterCurrentAndUndo() {
+        Backend backend;
+        backend.newDocument();
+        QCOMPARE(backend.pageCount(), 1);
+        QCOMPARE(backend.currentPageIndex(), 0);
+
+        // Add page 2 (index 1) and page 3 (index 2)
+        backend.addPage();
+        QCOMPARE(backend.pageCount(), 2);
+        QCOMPARE(backend.currentPageIndex(), 1);
+
+        backend.addPage();
+        QCOMPARE(backend.pageCount(), 3);
+        QCOMPARE(backend.currentPageIndex(), 2);
+
+        // Navigate back to page 2 (index 1)
+        backend.setCurrentPageIndex(1);
+        QCOMPARE(backend.currentPageIndex(), 1);
+
+        // Add page: MUST insert directly after current page (at index 2), NOT at the end
+        backend.addPage();
+        QCOMPARE(backend.pageCount(), 4);
+        QCOMPARE(backend.currentPageIndex(), 2);
+
+        // Undo page insertion
+        QCOMPARE(backend.canUndo(), true);
+        backend.undo();
+        QCOMPARE(backend.pageCount(), 3);
+        QCOMPARE(backend.currentPageIndex(), 1);
+
+        // Redo page insertion
+        QCOMPARE(backend.canRedo(), true);
+        backend.redo();
+        QCOMPARE(backend.pageCount(), 4);
+        QCOMPARE(backend.currentPageIndex(), 2);
+    }
+
+    void effectivePageCountPruning() {
+        Backend backend;
+        backend.newDocument();
+
+        // 1. Fresh document has 1 blank page: effective count is 1
+        QCOMPARE(backend.pageCount(), 1);
+        QCOMPARE(backend.effectivePageCount(), 1);
+
+        // 2. Auto-expand to 4 pages (e.g. infinite scroll expansion)
+        backend.autoExpandPages(4);
+        QCOMPARE(backend.pageCount(), 4);
+        // All pages are blank, but page 1 is always included -> effective count is 1
+        QCOMPARE(backend.effectivePageCount(), 1);
+
+        // 3. Draw a stroke on page index 2 (the 3rd page)
+        Stroke s;
+        s.tool = 0;
+        s.color = QColor("#18181c");
+        s.width = 2.0f;
+        s.points.append({50.0f, 50.0f, 0.5f});
+        s.points.append({60.0f, 60.0f, 0.5f});
+        backend.commitStroke(2, s);
+
+        // Pages 0, 1 (blank), and 2 (with data) -> effective page count is 3!
+        QCOMPARE(backend.pageCount(), 4);
+        QCOMPARE(backend.effectivePageCount(), 3);
+
+        // 4. Clear page 2
+        backend.setCurrentPageIndex(2);
+        backend.clearCurrentPage();
+        // Now only blank pages remain -> effective count drops back to 1
+        QCOMPARE(backend.effectivePageCount(), 1);
+    }
+
+    void deletePageWithUndo() {
+        Backend backend;
+        backend.newDocument();
+        backend.addPage(); // Page 1
+        backend.addPage(); // Page 2
+        QCOMPARE(backend.pageCount(), 3);
+
+        // Set to middle page (index 1) and draw a stroke
+        backend.setCurrentPageIndex(1);
+        Stroke s;
+        s.tool = 0;
+        s.color = QColor("#18181c");
+        s.width = 2.0f;
+        s.points.append({30.0f, 30.0f, 0.5f});
+        backend.commitStroke(1, s);
+        QCOMPARE(backend.pageAt(1)->strokes.size(), 1);
+
+        // Delete page 1
+        backend.deleteCurrentPage();
+        QCOMPARE(backend.pageCount(), 2);
+        QCOMPARE(backend.canUndo(), true);
+
+        // Undo deletion: restores deleted page with its stroke
+        backend.undo();
+        QCOMPARE(backend.pageCount(), 3);
+        QCOMPARE(backend.currentPageIndex(), 1);
+        QCOMPARE(backend.pageAt(1)->strokes.size(), 1);
+    }
+
+    void defaultPenColorAndPalette() {
+        Backend backend;
+        backend.newDocument();
+
+        // Default pen color must be ink black #18181c
+        QCOMPARE(backend.penColor(), QColor("#18181c"));
+    }
+
 private:
     static void write(const QString &path, const QByteArray &contents) {
         QFile file(path);
