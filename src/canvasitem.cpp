@@ -254,7 +254,7 @@ void CanvasItem::checkAutoExpand() {
 
     const int count = m_backend->pageCount();
     const QRectF lastRect = pageScreenRect(count - 1);
-    if (lastRect.bottom() <= height() + 600.0) {
+    if (lastRect.bottom() <= height() + 150.0) {
         m_backend->autoExpandPages(count + 1);
     }
 }
@@ -302,8 +302,11 @@ void CanvasItem::paint(QPainter *painter) {
         painter->setPen(QPen(QColor(180, 185, 195), 1.0));
         painter->drawRect(r);
 
-        // Page number tag
-        if (count > 1) {
+        // Page number tag (only shown when document has multiple pages, for real document pages)
+        const int effectiveCount = m_backend->effectivePageCount();
+        const int displayTotal = std::max(effectiveCount, m_backend->currentPageIndex() + 1);
+
+        if (displayTotal > 1 && i < displayTotal) {
             painter->save();
             painter->setPen(QColor(140, 145, 160));
             QFont pageTagFont(QStringLiteral("JetBrainsMono Nerd Font"));
@@ -311,7 +314,7 @@ void CanvasItem::paint(QPainter *painter) {
             pageTagFont.setBold(true);
             painter->setFont(pageTagFont);
             painter->drawText(QPointF(r.left() + 4, r.top() - 8),
-                              QStringLiteral("PAGE %1 OF %2").arg(i + 1).arg(count));
+                              QStringLiteral("PAGE %1 OF %2").arg(i + 1).arg(displayTotal));
             painter->restore();
         }
 

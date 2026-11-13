@@ -76,8 +76,9 @@ Item {
                             onDoubleClicked: {
                                 shelf.editingSwatchIndex = penColorItem.index
                                 shelf.editingSwatchTool = 0
-                                colorPicker.x = shelf.width + 6
-                                colorPicker.y = Math.max(0, penColorItem.mapToItem(shelf, 0, 0).y - 40)
+                                var globalPos = penColorItem.mapToItem(null, 0, 0)
+                                colorPicker.x = globalPos.x + penColorItem.width + 12
+                                colorPicker.y = Math.max(12, globalPos.y - 40)
                                 colorPicker.open()
                             }
                         }
@@ -168,8 +169,9 @@ Item {
                             onDoubleClicked: {
                                 shelf.editingSwatchIndex = hlColorItem.index
                                 shelf.editingSwatchTool = 1
-                                colorPicker.x = shelf.width + 6
-                                colorPicker.y = Math.max(0, hlColorItem.mapToItem(shelf, 0, 0).y - 40)
+                                var globalPos = hlColorItem.mapToItem(null, 0, 0)
+                                colorPicker.x = globalPos.x + hlColorItem.width + 12
+                                colorPicker.y = Math.max(12, globalPos.y - 40)
                                 colorPicker.open()
                             }
                         }
@@ -261,6 +263,10 @@ Item {
     // Floating Word-Style Grid Color Picker Popup
     ColorGridPicker {
         id: colorPicker
+        onClosed: {
+            shelf.editingSwatchIndex = -1
+            shelf.editingSwatchTool = -1
+        }
         onColorPicked: function(chosenColor) {
             if (shelf.editingSwatchTool === 0 && shelf.editingSwatchIndex >= 0 && shelf.editingSwatchIndex < shelf.penColors.length) {
                 var p = shelf.penColors.slice()

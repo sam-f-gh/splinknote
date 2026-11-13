@@ -146,14 +146,14 @@ Rectangle {
         }
 
         BarButton {
-            iconText: "\U000f0752"
+            iconText: "\u{f0752}"
             onClicked: backend.addPage()
             ToolTip.visible: hovered && !Qt.isTouchScreen
             ToolTip.text: qsTr("Add Page (+)")
         }
 
         BarButton {
-            iconText: "\U000f1aa1"
+            iconText: "\u{f1aa1}"
             enabled: backend.pageCount > 1
             ToolTip.visible: hovered && !Qt.isTouchScreen
             ToolTip.text: qsTr("Delete Page")

@@ -4,10 +4,11 @@ import QtQuick.Layouts
 
 Popup {
     id: pickerPopup
+    parent: Overlay.overlay
     padding: 8
     modal: true
     focus: true
-    closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+    closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside | Popup.CloseOnPressOutsideParent
 
     signal colorPicked(color chosenColor)
 
