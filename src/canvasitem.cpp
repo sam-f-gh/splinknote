@@ -373,10 +373,10 @@ void CanvasItem::paint(QPainter *painter) {
     // Precision Eraser Indicator Ring
     const bool isEraserMode = (m_backend->currentTool() == 2) || m_hardwareEraserActive || m_isErasing;
     if ((isEraserMode || m_showEraserHover) && !m_hoverPos.isNull()) {
-        const float r = m_backend->eraserRadius() * static_cast<float>(m_zoom);
+        const float r = std::max(2.5f, m_backend->eraserRadius() * static_cast<float>(m_zoom));
         painter->save();
-        painter->setPen(QPen(QColor(240, 80, 80, 220), 1.5, Qt::DashLine));
-        painter->setBrush(QColor(240, 80, 80, 40));
+        painter->setPen(QPen(QColor(240, 80, 80, 220), 1.0, Qt::DashLine));
+        painter->setBrush(QColor(240, 80, 80, 35));
         painter->drawEllipse(m_hoverPos, r, r);
         painter->restore();
     }

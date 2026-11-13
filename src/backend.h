@@ -168,7 +168,7 @@ private:
     float m_penWidth = 2.5f;
     QColor m_highlighterColor = QColor("#FFD60A");
     float m_highlighterWidth = 18.0f;
-    float m_eraserRadius = 6.0f; // Fixed precision point radius
+    float m_eraserRadius = 3.0f; // Fine precision point radius
 
     QVector<DocumentPage> m_pages;
     QVector<HistoryCommand> m_undoStack;

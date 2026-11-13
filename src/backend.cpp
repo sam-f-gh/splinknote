@@ -385,7 +385,7 @@ void Backend::setHighlighterWidth(float w) {
 }
 
 void Backend::setEraserRadius(float r) {
-    r = std::clamp(r, 4.0f, 80.0f);
+    r = std::clamp(r, 1.0f, 80.0f);
     if (!qFuzzyCompare(m_eraserRadius, r)) {
         m_eraserRadius = r;
         emit eraserRadiusChanged();

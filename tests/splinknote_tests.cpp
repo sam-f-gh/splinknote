@@ -400,8 +400,8 @@ private slots:
         backend.setHighlighterWidth(26.0f);
         QCOMPARE(backend.highlighterWidth(), 26.0f);
 
-        // Eraser radius (defaults to 6.0pt precision point)
-        QCOMPARE(backend.eraserRadius(), 6.0f);
+        // Eraser radius (defaults to 3.0pt fine precision point)
+        QCOMPARE(backend.eraserRadius(), 3.0f);
         backend.setEraserRadius(10.0f);
         QCOMPARE(backend.eraserRadius(), 10.0f);
     }
