@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=SplinkNote
+Comment=Minimalist stylus note-taking and PDF annotation
+Comment[da]=Minimalistisk stylus-notetagning og PDF-annotering
+Exec=splinknote %f
+Icon=splinknote
+Terminal=false
+Categories=Office;Graphics;Utility;
+MimeType=application/pdf;
+StartupWMClass=splinknote

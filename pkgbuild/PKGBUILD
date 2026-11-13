@@ -1,0 +1,23 @@
+pkgname=splinknote
+pkgver=3.0.0
+pkgrel=1
+pkgdesc='Minimalist stylus note-taking and PDF annotation for Omarchy'
+arch=('x86_64' 'aarch64')
+license=('MIT')
+depends=('qt6-base' 'qt6-declarative' 'qt6-wayland' 'xdg-desktop-portal' 'poppler-qt6')
+makedepends=('gcc' 'make' 'pkgconf')
+source=()
+sha256sums=()
+
+build() {
+  cd "$startdir/.."
+  ./bin/build
+}
+
+package() {
+  cd "$startdir/.."
+  install -Dm755 build/splinknote "$pkgdir/usr/bin/splinknote"
+  install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 "$startdir/splinknote.svg" "$pkgdir/usr/share/icons/hicolor/scalable/apps/splinknote.svg"
+  install -Dm644 "$startdir/splinknote.desktop" "$pkgdir/usr/share/applications/splinknote.desktop"
+}

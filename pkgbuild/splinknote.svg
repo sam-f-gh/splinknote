@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <rect width="64" height="64" rx="14" fill="#FFD60A"/>
+  <!-- Stylus / pen nib nib marking an organic curve -->
+  <path d="M42 14 L50 22 L26 46 L16 48 L18 38 Z" fill="#18181c"/>
+  <path d="M16 48 L22 46 L18 42 Z" fill="#ffffff"/>
+  <path d="M14 52 C20 48, 30 54, 46 48" stroke="#18181c" stroke-width="3" stroke-linecap="round" fill="none"/>
+</svg>

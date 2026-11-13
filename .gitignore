@@ -1,0 +1,7 @@
+/build/
+/pkgbuild/pkg/
+/pkgbuild/src/
+*.pkg.tar.*
+.qmake.stash
+Makefile*
+splinknote

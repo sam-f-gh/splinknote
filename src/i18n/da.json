@@ -1,0 +1,13 @@
+{
+  "New Note": "Ny note",
+  "Open PDF": "Åbn PDF",
+  "Pen": "Pen",
+  "Highlighter": "Overstregning",
+  "Eraser": "Viskelæder",
+  "Save": "Gem",
+  "Close note": "Luk note",
+  "Opened %1 (%n pages)": {
+    "one": "Åbnede %1 (%n side)",
+    "other": "Åbnede %1 (%n sider)"
+  }
+}
