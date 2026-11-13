@@ -7,6 +7,11 @@ Item {
     width: 50
     height: contentColumn.implicitHeight + 24
 
+    property var penColors: ["#18181c", theme.accent, "#f7768e", "#9ece6a", "#7dcfff"]
+    property var highlighterColors: ["#FFD60A", "#70C0E8", "#F7768E", "#73DACA"]
+    property int editingSwatchIndex: -1
+    property int editingSwatchTool: -1
+
     Rectangle {
         anchors.fill: parent
         color: theme.darkBackground
@@ -37,16 +42,11 @@ Item {
 
                 // Color Swatches (Black is the default primary color)
                 Repeater {
-                    model: [
-                        { color: "#18181c" }, // True ink black default
-                        { color: theme.accent },
-                        { color: "#f7768e" },
-                        { color: "#9ece6a" },
-                        { color: "#7dcfff" }
-                    ]
+                    model: shelf.penColors
                     delegate: Rectangle {
                         id: penColorItem
                         required property var modelData
+                        required property int index
                         width: 36
                         height: 36
                         radius: 18
@@ -57,11 +57,11 @@ Item {
                             width: 22
                             height: 22
                             radius: 11
-                            color: penColorItem.modelData.color
-                            border.color: Qt.colorEqual(backend.penColor, penColorItem.modelData.color)
+                            color: penColorItem.modelData
+                            border.color: Qt.colorEqual(backend.penColor, penColorItem.modelData)
                                           ? theme.foreground
                                           : theme.lighterBackground
-                            border.width: Qt.colorEqual(backend.penColor, penColorItem.modelData.color) ? 2.5 : 1
+                            border.width: Qt.colorEqual(backend.penColor, penColorItem.modelData) ? 2.5 : 1
 
                             scale: swatchMouse.containsMouse ? 1.15 : 1.0
                             Behavior on scale { NumberAnimation { duration: 100 } }
@@ -72,8 +72,10 @@ Item {
                             anchors.fill: parent
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
-                            onClicked: backend.setPenColor(penColorItem.modelData.color)
+                            onClicked: backend.setPenColor(penColorItem.modelData)
                             onDoubleClicked: {
+                                shelf.editingSwatchIndex = penColorItem.index
+                                shelf.editingSwatchTool = 0
                                 colorPicker.x = shelf.width + 6
                                 colorPicker.y = Math.max(0, penColorItem.mapToItem(shelf, 0, 0).y - 40)
                                 colorPicker.open()
@@ -132,15 +134,11 @@ Item {
 
                 // Highlighter Colors
                 Repeater {
-                    model: [
-                        { color: "#FFD60A" }, // Yellow
-                        { color: "#70C0E8" }, // Cyan
-                        { color: "#F7768E" }, // Rose Pink
-                        { color: "#73DACA" }  // Mint Green
-                    ]
+                    model: shelf.highlighterColors
                     delegate: Rectangle {
                         id: hlColorItem
                         required property var modelData
+                        required property int index
                         width: 36
                         height: 36
                         radius: 18
@@ -151,11 +149,11 @@ Item {
                             width: 24
                             height: 24
                             radius: 12
-                            color: hlColorItem.modelData.color
-                            border.color: Qt.colorEqual(backend.highlighterColor, hlColorItem.modelData.color)
+                            color: hlColorItem.modelData
+                            border.color: Qt.colorEqual(backend.highlighterColor, hlColorItem.modelData)
                                           ? theme.foreground
                                           : theme.lighterBackground
-                            border.width: Qt.colorEqual(backend.highlighterColor, hlColorItem.modelData.color) ? 2.5 : 1
+                            border.width: Qt.colorEqual(backend.highlighterColor, hlColorItem.modelData) ? 2.5 : 1
 
                             scale: hlMouse.containsMouse ? 1.15 : 1.0
                             Behavior on scale { NumberAnimation { duration: 100 } }
@@ -166,8 +164,10 @@ Item {
                             anchors.fill: parent
                             hoverEnabled: true
                             cursorShape: Qt.PointingHandCursor
-                            onClicked: backend.setHighlighterColor(hlColorItem.modelData.color)
+                            onClicked: backend.setHighlighterColor(hlColorItem.modelData)
                             onDoubleClicked: {
+                                shelf.editingSwatchIndex = hlColorItem.index
+                                shelf.editingSwatchTool = 1
                                 colorPicker.x = shelf.width + 6
                                 colorPicker.y = Math.max(0, hlColorItem.mapToItem(shelf, 0, 0).y - 40)
                                 colorPicker.open()
@@ -233,7 +233,7 @@ Item {
 
                     Text {
                         anchors.centerIn: parent
-                        text: "󰇚"
+                        text: "\uf1f8"
                         font.family: "JetBrainsMono Nerd Font"
                         font.pixelSize: 18
                         color: clearMouse.containsMouse ? "#f7768e" : theme.foreground
@@ -262,11 +262,25 @@ Item {
     ColorGridPicker {
         id: colorPicker
         onColorPicked: function(chosenColor) {
-            if (backend.currentTool === 1) {
+            if (shelf.editingSwatchTool === 0 && shelf.editingSwatchIndex >= 0 && shelf.editingSwatchIndex < shelf.penColors.length) {
+                var p = shelf.penColors.slice()
+                p[shelf.editingSwatchIndex] = chosenColor
+                shelf.penColors = p
+                backend.setPenColor(chosenColor)
+            } else if (shelf.editingSwatchTool === 1 && shelf.editingSwatchIndex >= 0 && shelf.editingSwatchIndex < shelf.highlighterColors.length) {
+                var h = shelf.highlighterColors.slice()
+                h[shelf.editingSwatchIndex] = chosenColor
+                shelf.highlighterColors = h
                 backend.setHighlighterColor(chosenColor)
             } else {
-                backend.setPenColor(chosenColor)
+                if (backend.currentTool === 1) {
+                    backend.setHighlighterColor(chosenColor)
+                } else {
+                    backend.setPenColor(chosenColor)
+                }
             }
+            shelf.editingSwatchIndex = -1
+            shelf.editingSwatchTool = -1
         }
     }
 }

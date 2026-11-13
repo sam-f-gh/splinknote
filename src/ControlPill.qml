@@ -146,14 +146,14 @@ Rectangle {
         }
 
         BarButton {
-            iconText: "＋"
+            iconText: "\U000f0752"
             onClicked: backend.addPage()
             ToolTip.visible: hovered && !Qt.isTouchScreen
             ToolTip.text: qsTr("Add Page (+)")
         }
 
         BarButton {
-            iconText: "－"
+            iconText: "\U000f1aa1"
             enabled: backend.pageCount > 1
             ToolTip.visible: hovered && !Qt.isTouchScreen
             ToolTip.text: qsTr("Delete Page")
@@ -204,14 +204,14 @@ Rectangle {
         }
 
         BarButton {
-            iconText: "󰋔"
+            iconText: "\uee5a"
             text: qsTr("Highlighter")
             active: backend.currentTool === 1
             onClicked: backend.setCurrentTool(1)
         }
 
         BarButton {
-            iconText: "󰇼"
+            iconText: "\uf12d"
             text: qsTr("Eraser")
             active: backend.currentTool === 2
             onClicked: backend.setCurrentTool(2)
