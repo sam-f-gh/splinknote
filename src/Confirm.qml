@@ -32,8 +32,8 @@ Rectangle {
         width: Math.min(parent.width - 48, 380)
         height: dialogCol.implicitHeight + 40
         radius: theme.radius > 0 ? Math.min(theme.radius, 14) : 12
-        color: "#1c1e26"
-        border.color: "#323644"
+        color: theme.darkBackground
+        border.color: theme.lighterBackground
         border.width: 1
 
         ColumnLayout {
@@ -44,15 +44,17 @@ Rectangle {
 
             Text {
                 text: qsTr("Unsaved Changes")
-                font.pixelSize: 18
+                font.family: "JetBrainsMono Nerd Font"
+                font.pixelSize: 16
                 font.bold: true
-                color: "#ffffff"
+                color: theme.foreground
             }
 
             Text {
                 text: root.message
-                font.pixelSize: 14
-                color: "#c0c3ce"
+                font.family: "JetBrainsMono Nerd Font"
+                font.pixelSize: 13
+                color: theme.secondaryForeground
                 wrapMode: Text.WordWrap
                 Layout.fillWidth: true
             }

@@ -22,9 +22,15 @@ int main(int argc, char *argv[]) {
     app.setDesktopFileName("splinknote");
     app.setWindowIcon(QIcon::fromTheme("splinknote"));
 
+    // Omarchy system font
+    QFont appFont("JetBrainsMono Nerd Font", 10);
+    appFont.setStyleHint(QFont::Monospace);
+    app.setFont(appFont);
+
     QQuickStyle::setStyle("Material");
 
     qmlRegisterType<CanvasItem>("SplinkNote", 1, 0, "CanvasItem");
+    qmlRegisterUncreatableType<Backend>("SplinkNote", 1, 0, "Backend", "Backend is provided by C++");
 
     Translator translator;
     app.installTranslator(&translator);

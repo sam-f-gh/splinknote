@@ -8,7 +8,7 @@ Item {
 
     Rectangle {
         anchors.fill: parent
-        color: "#0e0e10"
+        color: theme.background
     }
 
     ColumnLayout {
@@ -31,6 +31,7 @@ Item {
                 Text {
                     anchors.centerIn: parent
                     text: "✎"
+                    font.family: "JetBrainsMono Nerd Font"
                     font.pixelSize: 32
                     color: theme.accentForeground
                 }
@@ -39,16 +40,18 @@ Item {
             Text {
                 Layout.alignment: Qt.AlignHCenter
                 text: "SplinkNote"
-                font.pixelSize: 32
+                font.family: "JetBrainsMono Nerd Font"
+                font.pixelSize: 30
                 font.bold: true
-                color: "#f0f2f6"
+                color: theme.foreground
             }
 
             Text {
                 Layout.alignment: Qt.AlignHCenter
                 text: qsTr("Minimalist note-taking and PDF annotation")
-                font.pixelSize: 14
-                color: "#8c909e"
+                font.family: "JetBrainsMono Nerd Font"
+                font.pixelSize: 13
+                color: theme.secondaryForeground
             }
         }
 
@@ -61,10 +64,10 @@ Item {
             // New Blank Note Card
             Rectangle {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 120
+                Layout.preferredHeight: 124
                 radius: theme.radius > 0 ? Math.min(theme.radius, 14) : 12
-                color: newArea.containsPress ? "#282a32" : newArea.containsMouse ? "#202228" : "#17181c"
-                border.color: newArea.containsMouse ? theme.accent : "#2d3038"
+                color: newArea.containsPress ? theme.darkBackground : newArea.containsMouse ? theme.lighterBackground : theme.darkBackground
+                border.color: newArea.containsMouse ? theme.accent : theme.lighterBackground
                 border.width: newArea.containsMouse ? 2 : 1
 
                 ColumnLayout {
@@ -74,6 +77,7 @@ Item {
                     Text {
                         Layout.alignment: Qt.AlignHCenter
                         text: "＋"
+                        font.family: "JetBrainsMono Nerd Font"
                         font.pixelSize: 28
                         font.bold: true
                         color: theme.accent
@@ -82,16 +86,18 @@ Item {
                     Text {
                         Layout.alignment: Qt.AlignHCenter
                         text: qsTr("New Note")
-                        font.pixelSize: 16
+                        font.family: "JetBrainsMono Nerd Font"
+                        font.pixelSize: 15
                         font.bold: true
-                        color: "#ffffff"
+                        color: theme.foreground
                     }
 
                     Text {
                         Layout.alignment: Qt.AlignHCenter
                         text: qsTr("Start on a blank page")
+                        font.family: "JetBrainsMono Nerd Font"
                         font.pixelSize: 12
-                        color: "#888c99"
+                        color: theme.secondaryForeground
                     }
                 }
 
@@ -107,10 +113,10 @@ Item {
             // Open Document Card
             Rectangle {
                 Layout.fillWidth: true
-                Layout.preferredHeight: 120
+                Layout.preferredHeight: 124
                 radius: theme.radius > 0 ? Math.min(theme.radius, 14) : 12
-                color: openArea.containsPress ? "#282a32" : openArea.containsMouse ? "#202228" : "#17181c"
-                border.color: openArea.containsMouse ? theme.accent : "#2d3038"
+                color: openArea.containsPress ? theme.darkBackground : openArea.containsMouse ? theme.lighterBackground : theme.darkBackground
+                border.color: openArea.containsMouse ? theme.accent : theme.lighterBackground
                 border.width: openArea.containsMouse ? 2 : 1
 
                 ColumnLayout {
@@ -120,23 +126,26 @@ Item {
                     Text {
                         Layout.alignment: Qt.AlignHCenter
                         text: "📁"
-                        font.pixelSize: 28
-                        color: "#d0d3dc"
+                        font.family: "JetBrainsMono Nerd Font"
+                        font.pixelSize: 26
+                        color: theme.foreground
                     }
 
                     Text {
                         Layout.alignment: Qt.AlignHCenter
                         text: qsTr("Open PDF")
-                        font.pixelSize: 16
+                        font.family: "JetBrainsMono Nerd Font"
+                        font.pixelSize: 15
                         font.bold: true
-                        color: "#ffffff"
+                        color: theme.foreground
                     }
 
                     Text {
                         Layout.alignment: Qt.AlignHCenter
                         text: qsTr("Annotate or continue notes")
+                        font.family: "JetBrainsMono Nerd Font"
                         font.pixelSize: 12
-                        color: "#888c99"
+                        color: theme.secondaryForeground
                     }
                 }
 
@@ -154,8 +163,9 @@ Item {
         Text {
             Layout.alignment: Qt.AlignHCenter
             text: qsTr("Press '?' anytime for keyboard shortcuts")
-            font.pixelSize: 12
-            color: "#5f6370"
+            font.family: "JetBrainsMono Nerd Font"
+            font.pixelSize: 11
+            color: theme.secondaryForeground
         }
     }
 }

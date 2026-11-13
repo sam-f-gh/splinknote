@@ -11,14 +11,17 @@ ApplicationWindow {
     minimumWidth: 360
     minimumHeight: 400
     visible: true
+
+    readonly property var appBackend: backend
+
     title: backend.hasDocument
            ? (backend.currentFilePath.length > 0
               ? backend.currentFilePath.substring(backend.currentFilePath.lastIndexOf('/') + 1)
               : qsTr("Untitled Note")) + (backend.hasUnsavedChanges ? " ●" : "") + " — SplinkNote"
            : "SplinkNote"
-    color: "#0e0e10"
+    color: theme.background
 
-    Material.theme: Material.Dark
+    Material.theme: theme.light ? Material.Light : Material.Dark
     Material.accent: theme.accent
     Material.roundedScale: theme.radius
 
@@ -55,34 +58,34 @@ ApplicationWindow {
     }
 
     Shortcut {
-        sequence: StandardKey.Undo
+        sequences: [StandardKey.Undo]
         context: Qt.ApplicationShortcut
         enabled: backend.hasDocument && backend.canUndo
         onActivated: backend.undo()
     }
 
     Shortcut {
-        sequence: StandardKey.Redo
+        sequences: [StandardKey.Redo]
         context: Qt.ApplicationShortcut
         enabled: backend.hasDocument && backend.canRedo
         onActivated: backend.redo()
     }
 
     Shortcut {
-        sequence: StandardKey.Save
+        sequences: [StandardKey.Save]
         context: Qt.ApplicationShortcut
         enabled: backend.hasDocument
         onActivated: backend.saveDocument()
     }
 
     Shortcut {
-        sequence: StandardKey.Open
+        sequences: [StandardKey.Open]
         context: Qt.ApplicationShortcut
         onActivated: backend.openDocument()
     }
 
     Shortcut {
-        sequence: StandardKey.New
+        sequences: [StandardKey.New]
         context: Qt.ApplicationShortcut
         onActivated: {
             if (backend.hasUnsavedChanges) {
@@ -184,34 +187,41 @@ ApplicationWindow {
             visible: !backend.hasDocument
         }
 
-        // 2. Inking Canvas (when document is active)
+        // 2. Inking Canvas View (when document is active)
         Item {
             anchors.fill: parent
             visible: backend.hasDocument
 
-            CanvasItem {
-                id: canvas
-                anchors.fill: parent
-                backend: backend
-            }
-
-            // Floating Tablet-First Control Pill
+            // Integrated Header Bar
             ControlPill {
                 id: pill
-                anchors.horizontalCenter: parent.horizontalCenter
                 anchors.top: parent.top
-                anchors.topMargin: 16
+                anchors.left: parent.left
+                anchors.right: parent.right
+                height: 52
+                z: 10
             }
 
-            // Status message
+            // High-DPI Canvas Item anchored cleanly below the header bar
+            CanvasItem {
+                id: canvas
+                anchors.top: pill.bottom
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.bottom: parent.bottom
+                backend: win.appBackend
+            }
+
+            // Status message at bottom-left corner
             Text {
                 anchors.left: parent.left
                 anchors.leftMargin: 16
                 anchors.bottom: parent.bottom
                 anchors.bottomMargin: 12
                 text: backend.status
-                color: "#6b7080"
-                font.pixelSize: 12
+                color: theme.secondaryForeground
+                font.family: "JetBrainsMono Nerd Font"
+                font.pixelSize: 11
                 opacity: text.length > 0 ? 0.9 : 0.0
                 Behavior on opacity { NumberAnimation { duration: 200 } }
             }

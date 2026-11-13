@@ -6,155 +6,192 @@ import QtQuick.Layouts
 Rectangle {
     id: root
 
-    implicitWidth: mainRow.implicitWidth + 16
     implicitHeight: 52
-    radius: theme.radius > 0 ? Math.min(theme.radius, 14) : 12
+    color: theme.darkBackground
 
-    color: "#e61b1d24"
-    border.color: "#323540"
-    border.width: 1
-
-    // Drop shadow
+    // 1px subtle divider border at bottom
     Rectangle {
-        z: -1
-        anchors.fill: parent
-        anchors.margins: -1
-        radius: root.radius + 1
-        color: "#33000000"
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        height: 1
+        color: theme.lighterBackground
     }
 
     RowLayout {
-        id: mainRow
-        anchors.centerIn: parent
-        spacing: 4
+        anchors.fill: parent
+        anchors.leftMargin: 12
+        anchors.rightMargin: 12
+        spacing: 8
 
-        // 1. Home / Close Document
-        BarButton {
-            iconText: "⌂"
-            onClicked: backend.closeDocument()
-            ToolTip.visible: (hovered || active) && !Qt.isTouchScreen
-            ToolTip.text: qsTr("Close note")
-        }
-
-        Rectangle {
-            width: 1
-            height: 24
-            color: "#2f323c"
+        // Left Section: Home/Close & Document Title
+        RowLayout {
             Layout.alignment: Qt.AlignVCenter
-            Layout.leftMargin: 2
-            Layout.rightMargin: 2
-        }
+            spacing: 8
 
-        // 2. Tools
-        BarButton {
-            iconText: "✎"
-            text: qsTr("Pen")
-            active: backend.currentTool === 0
-            onClicked: backend.setCurrentTool(0)
-        }
+            BarButton {
+                iconText: "⌂"
+                onClicked: {
+                    if (backend.hasUnsavedChanges) {
+                        confirmDialog.ask(qsTr("Close note and discard unsaved changes?"), function() {
+                            backend.closeDocument()
+                        })
+                    } else {
+                        backend.closeDocument()
+                    }
+                }
+                ToolTip.visible: hovered && !Qt.isTouchScreen
+                ToolTip.text: qsTr("Close note")
+            }
 
-        BarButton {
-            iconText: "🖍"
-            text: qsTr("Highlighter")
-            active: backend.currentTool === 1
-            onClicked: backend.setCurrentTool(1)
-        }
+            Rectangle {
+                width: 1
+                height: 24
+                color: theme.lighterBackground
+            }
 
-        BarButton {
-            iconText: "⌫"
-            text: qsTr("Eraser")
-            active: backend.currentTool === 2
-            onClicked: backend.setCurrentTool(2)
-        }
+            ColumnLayout {
+                spacing: 2
+                Layout.alignment: Qt.AlignVCenter
 
-        Rectangle {
-            width: 1
-            height: 24
-            color: "#2f323c"
-            Layout.alignment: Qt.AlignVCenter
-            Layout.leftMargin: 2
-            Layout.rightMargin: 2
-        }
+                RowLayout {
+                    spacing: 6
+                    Text {
+                        text: "SplinkNote"
+                        font.family: "JetBrainsMono Nerd Font"
+                        font.pixelSize: 13
+                        font.bold: true
+                        color: theme.accent
+                    }
 
-        // 3. Undo / Redo
-        BarButton {
-            iconText: "↶"
-            enabled: backend.canUndo
-            onClicked: backend.undo()
-        }
+                    Rectangle {
+                        visible: backend.hasUnsavedChanges
+                        width: 6
+                        height: 6
+                        radius: 3
+                        color: theme.accent
+                    }
+                }
 
-        BarButton {
-            iconText: "↷"
-            enabled: backend.canRedo
-            onClicked: backend.redo()
-        }
-
-        Rectangle {
-            width: 1
-            height: 24
-            color: "#2f323c"
-            Layout.alignment: Qt.AlignVCenter
-            Layout.leftMargin: 2
-            Layout.rightMargin: 2
-        }
-
-        // 4. Page Nav & Add
-        BarButton {
-            iconText: "‹"
-            enabled: backend.currentPageIndex > 0
-            onClicked: backend.previousPage()
-        }
-
-        Item {
-            implicitWidth: pageText.implicitWidth + 12
-            implicitHeight: 36
-            Layout.alignment: Qt.AlignVCenter
-
-            Text {
-                id: pageText
-                anchors.centerIn: parent
-                text: qsTr("%1 / %2").arg(backend.currentPageIndex + 1).arg(Math.max(1, backend.pageCount))
-                font.pixelSize: 13
-                font.bold: true
-                color: "#e2e4e9"
+                Text {
+                    text: backend.currentFilePath.length > 0
+                          ? backend.currentFilePath.substring(backend.currentFilePath.lastIndexOf('/') + 1)
+                          : qsTr("Untitled Note")
+                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: 11
+                    color: theme.secondaryForeground
+                    elide: Text.ElideRight
+                    Layout.maximumWidth: 160
+                }
             }
         }
 
-        BarButton {
-            iconText: "›"
-            enabled: backend.currentPageIndex < backend.pageCount - 1
-            onClicked: backend.nextPage()
-        }
+        // Center Spacer
+        Item { Layout.fillWidth: true }
 
-        BarButton {
-            iconText: "＋"
-            onClicked: backend.addPage()
-        }
-
-        Rectangle {
-            width: 1
-            height: 24
-            color: "#2f323c"
+        // Center Section: The Core Tools
+        RowLayout {
             Layout.alignment: Qt.AlignVCenter
-            Layout.leftMargin: 2
-            Layout.rightMargin: 2
+            spacing: 4
+
+            BarButton {
+                iconText: "✎"
+                text: qsTr("Pen")
+                active: backend.currentTool === 0
+                onClicked: backend.setCurrentTool(0)
+            }
+
+            BarButton {
+                iconText: "🖍"
+                text: qsTr("Highlighter")
+                active: backend.currentTool === 1
+                onClicked: backend.setCurrentTool(1)
+            }
+
+            BarButton {
+                iconText: "⌫"
+                text: qsTr("Eraser")
+                active: backend.currentTool === 2
+                onClicked: backend.setCurrentTool(2)
+            }
         }
 
-        // 5. Save Button with Unsaved Indicator
-        BarButton {
-            text: qsTr("Save")
-            onClicked: backend.saveDocument()
+        // Right Spacer
+        Item { Layout.fillWidth: true }
+
+        // Right Section: Undo/Redo, Page Nav & Save
+        RowLayout {
+            Layout.alignment: Qt.AlignVCenter
+            spacing: 4
+
+            BarButton {
+                iconText: "↶"
+                enabled: backend.canUndo
+                onClicked: backend.undo()
+                ToolTip.visible: hovered && !Qt.isTouchScreen
+                ToolTip.text: qsTr("Undo (Ctrl+Z)")
+            }
+
+            BarButton {
+                iconText: "↷"
+                enabled: backend.canRedo
+                onClicked: backend.redo()
+                ToolTip.visible: hovered && !Qt.isTouchScreen
+                ToolTip.text: qsTr("Redo (Ctrl+Y)")
+            }
 
             Rectangle {
-                visible: backend.hasUnsavedChanges
-                width: 7
-                height: 7
-                radius: 3.5
-                color: theme.accent
-                anchors.top: parent.top
-                anchors.topMargin: 6
-                anchors.right: parent.right
-                anchors.rightMargin: 6
+                width: 1
+                height: 24
+                color: theme.lighterBackground
+                Layout.leftMargin: 4
+                Layout.rightMargin: 4
+            }
+
+            BarButton {
+                iconText: "‹"
+                enabled: backend.currentPageIndex > 0
+                onClicked: backend.previousPage()
+            }
+
+            Text {
+                text: qsTr("%1 / %2").arg(backend.currentPageIndex + 1).arg(Math.max(1, backend.pageCount))
+                font.family: "JetBrainsMono Nerd Font"
+                font.pixelSize: 12
+                font.bold: true
+                color: theme.foreground
+                Layout.alignment: Qt.AlignVCenter
+                Layout.leftMargin: 4
+                Layout.rightMargin: 4
+            }
+
+            BarButton {
+                iconText: "›"
+                enabled: backend.currentPageIndex < backend.pageCount - 1
+                onClicked: backend.nextPage()
+            }
+
+            BarButton {
+                iconText: "＋"
+                onClicked: backend.addPage()
+                ToolTip.visible: hovered && !Qt.isTouchScreen
+                ToolTip.text: qsTr("Add Page (+)")
+            }
+
+            Rectangle {
+                width: 1
+                height: 24
+                color: theme.lighterBackground
+                Layout.leftMargin: 4
+                Layout.rightMargin: 4
+            }
+
+            BarButton {
+                text: qsTr("Save")
+                active: backend.hasUnsavedChanges
+                onClicked: backend.saveDocument()
+                ToolTip.visible: hovered && !Qt.isTouchScreen
+                ToolTip.text: qsTr("Save PDF (Ctrl+S)")
             }
         }
     }

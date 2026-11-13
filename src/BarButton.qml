@@ -8,7 +8,7 @@ Rectangle {
     property alias text: label.text
     property alias iconText: iconLabel.text
     property bool active: false
-    property bool enabled: true
+    readonly property bool hovered: mouseArea.containsMouse
     signal clicked()
 
     implicitWidth: Math.max(44, contentRow.implicitWidth + 24)
@@ -37,6 +37,7 @@ Rectangle {
             id: iconLabel
             visible: text.length > 0
             anchors.verticalCenter: parent.verticalCenter
+            font.family: "JetBrainsMono Nerd Font"
             font.pixelSize: 18
             font.bold: true
             color: root.active ? theme.accentForeground : "#e2e4e9"
@@ -46,6 +47,7 @@ Rectangle {
             id: label
             visible: text.length > 0
             anchors.verticalCenter: parent.verticalCenter
+            font.family: "JetBrainsMono Nerd Font"
             font.pixelSize: 13
             font.bold: root.active
             color: root.active ? theme.accentForeground : "#d0d3dc"

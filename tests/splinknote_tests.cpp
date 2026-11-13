@@ -1,6 +1,9 @@
 #include <QColor>
 #include <QDir>
 #include <QFile>
+#include <QQmlApplicationEngine>
+#include <QQmlContext>
+#include <QQuickWindow>
 #include <QTemporaryDir>
 #include <QTemporaryFile>
 #include <QtTest>
@@ -245,8 +248,8 @@ private slots:
     void themeFallsBack() {
         QTemporaryDir dir;
         Theme theme(dir.path());
-        QCOMPARE(theme.accent(), QString("#FFD60A"));
-        QCOMPARE(theme.accentForeground(), QString("black"));
+        QCOMPARE(theme.accent(), QColor("#FFD60A"));
+        QCOMPARE(theme.accentForeground(), QColor("black"));
     }
 
     void themeReadsAccent() {
@@ -258,8 +261,8 @@ private slots:
         colors.close();
 
         Theme theme(dir.path());
-        QCOMPARE(theme.accent(), QString("#112233"));
-        QCOMPARE(theme.accentForeground(), QString("white"));
+        QCOMPARE(theme.accent(), QColor("#112233"));
+        QCOMPARE(theme.accentForeground(), QColor("white"));
     }
 
     void themeFollowsHyprlandRounding() {
@@ -306,6 +309,41 @@ private slots:
         Translator translator(dir.path() + "/language", dir.path());
         QCOMPARE(translator.translate("Main", "Opened %1 (%n pages)", nullptr, 1), QString("Opened %1 (%n page)"));
         QCOMPARE(translator.translate("Main", "Opened %1 (%n pages)", nullptr, 5), QString("Opened %1 (%n pages)"));
+    }
+
+    void canvasAndWindowRendering() {
+        qmlRegisterType<CanvasItem>("SplinkNote", 1, 0, "CanvasItem");
+        qmlRegisterUncreatableType<Backend>("SplinkNote", 1, 0, "Backend", "Backend is provided by C++");
+        Translator translator;
+        Theme theme;
+        Backend backend;
+        backend.newDocument();
+
+        QQmlApplicationEngine engine;
+        engine.rootContext()->setContextProperty("translator", &translator);
+        engine.rootContext()->setContextProperty("theme", &theme);
+        engine.rootContext()->setContextProperty("backend", &backend);
+
+        engine.load(QUrl("qrc:/Main.qml"));
+        QVERIFY(!engine.rootObjects().isEmpty());
+        auto *win = qobject_cast<QQuickWindow*>(engine.rootObjects().first());
+        QVERIFY(win != nullptr);
+        win->show();
+
+        QImage img = win->grabWindow();
+        QColor centerCol = img.pixelColor(img.width() / 2, img.height() / 2);
+        QCOMPARE(centerCol, QColor("#ffffff"));
+        img.save("/home/sam/Work/splinknote/test_grab.png");
+    }
+
+    void pdfRenderingVerification() {
+        Backend backend;
+        if (QFile::exists("/home/sam/Documents/test.pdf")) {
+            QVERIFY(backend.openPdfFile("/home/sam/Documents/test.pdf"));
+            QCOMPARE(backend.hasDocument(), true);
+            QVERIFY(backend.pageCount() > 0);
+            QVERIFY(!backend.currentPage()->pdfBackground.isNull());
+        }
     }
 
 private:

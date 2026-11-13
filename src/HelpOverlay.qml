@@ -22,8 +22,8 @@ Rectangle {
         width: Math.min(parent.width - 32, 460)
         height: contentCol.implicitHeight + 40
         radius: theme.radius > 0 ? Math.min(theme.radius, 16) : 14
-        color: "#181a20"
-        border.color: "#303440"
+        color: theme.darkBackground
+        border.color: theme.lighterBackground
         border.width: 1
 
         ColumnLayout {
@@ -36,16 +36,18 @@ Rectangle {
                 Layout.fillWidth: true
                 Text {
                     text: qsTr("Keyboard Shortcuts")
-                    font.pixelSize: 18
+                    font.family: "JetBrainsMono Nerd Font"
+                    font.pixelSize: 16
                     font.bold: true
-                    color: "#ffffff"
+                    color: theme.foreground
                     Layout.fillWidth: true
                 }
 
                 Text {
                     text: "✕"
+                    font.family: "JetBrainsMono Nerd Font"
                     font.pixelSize: 16
-                    color: "#888c99"
+                    color: theme.secondaryForeground
                     MouseArea {
                         anchors.fill: parent
                         cursorShape: Qt.PointingHandCursor
@@ -57,7 +59,7 @@ Rectangle {
             Rectangle {
                 Layout.fillWidth: true
                 height: 1
-                color: "#282b34"
+                color: theme.lighterBackground
             }
 
             GridLayout {
@@ -66,41 +68,41 @@ Rectangle {
                 columnSpacing: 24
                 Layout.fillWidth: true
 
-                Text { text: "P"; font.bold: true; color: theme.accent }
-                Text { text: qsTr("Pen tool"); color: "#d0d3dc" }
+                Text { text: "P"; font.family: "JetBrainsMono Nerd Font"; font.bold: true; color: theme.accent }
+                Text { text: qsTr("Pen tool"); font.family: "JetBrainsMono Nerd Font"; color: theme.foreground }
 
-                Text { text: "H"; font.bold: true; color: theme.accent }
-                Text { text: qsTr("Highlighter tool"); color: "#d0d3dc" }
+                Text { text: "H"; font.family: "JetBrainsMono Nerd Font"; font.bold: true; color: theme.accent }
+                Text { text: qsTr("Highlighter tool"); font.family: "JetBrainsMono Nerd Font"; color: theme.foreground }
 
-                Text { text: "E"; font.bold: true; color: theme.accent }
-                Text { text: qsTr("Eraser tool"); color: "#d0d3dc" }
+                Text { text: "E"; font.family: "JetBrainsMono Nerd Font"; font.bold: true; color: theme.accent }
+                Text { text: qsTr("Eraser tool"); font.family: "JetBrainsMono Nerd Font"; color: theme.foreground }
 
-                Text { text: "Ctrl + Z"; font.bold: true; color: theme.accent }
-                Text { text: qsTr("Undo stroke"); color: "#d0d3dc" }
+                Text { text: "Ctrl + Z"; font.family: "JetBrainsMono Nerd Font"; font.bold: true; color: theme.accent }
+                Text { text: qsTr("Undo stroke"); font.family: "JetBrainsMono Nerd Font"; color: theme.foreground }
 
-                Text { text: "Ctrl + Y / Ctrl+Shift+Z"; font.bold: true; color: theme.accent }
-                Text { text: qsTr("Redo stroke"); color: "#d0d3dc" }
+                Text { text: "Ctrl + Y / Ctrl+Shift+Z"; font.family: "JetBrainsMono Nerd Font"; font.bold: true; color: theme.accent }
+                Text { text: qsTr("Redo stroke"); font.family: "JetBrainsMono Nerd Font"; color: theme.foreground }
 
-                Text { text: "Ctrl + S"; font.bold: true; color: theme.accent }
-                Text { text: qsTr("Save PDF"); color: "#d0d3dc" }
+                Text { text: "Ctrl + S"; font.family: "JetBrainsMono Nerd Font"; font.bold: true; color: theme.accent }
+                Text { text: qsTr("Save PDF"); font.family: "JetBrainsMono Nerd Font"; color: theme.foreground }
 
-                Text { text: "Ctrl + O"; font.bold: true; color: theme.accent }
-                Text { text: qsTr("Open document"); color: "#d0d3dc" }
+                Text { text: "Ctrl + O"; font.family: "JetBrainsMono Nerd Font"; font.bold: true; color: theme.accent }
+                Text { text: qsTr("Open document"); font.family: "JetBrainsMono Nerd Font"; color: theme.foreground }
 
-                Text { text: "N / PageDown"; font.bold: true; color: theme.accent }
-                Text { text: qsTr("Next page"); color: "#d0d3dc" }
+                Text { text: "N / PageDown"; font.family: "JetBrainsMono Nerd Font"; font.bold: true; color: theme.accent }
+                Text { text: qsTr("Next page"); font.family: "JetBrainsMono Nerd Font"; color: theme.foreground }
 
-                Text { text: "B / PageUp"; font.bold: true; color: theme.accent }
-                Text { text: qsTr("Previous page"); color: "#d0d3dc" }
+                Text { text: "B / PageUp"; font.family: "JetBrainsMono Nerd Font"; font.bold: true; color: theme.accent }
+                Text { text: qsTr("Previous page"); font.family: "JetBrainsMono Nerd Font"; color: theme.foreground }
 
-                Text { text: "+"; font.bold: true; color: theme.accent }
-                Text { text: qsTr("Add new page"); color: "#d0d3dc" }
+                Text { text: "+"; font.family: "JetBrainsMono Nerd Font"; font.bold: true; color: theme.accent }
+                Text { text: qsTr("Add new page"); font.family: "JetBrainsMono Nerd Font"; color: theme.foreground }
 
-                Text { text: "Esc"; font.bold: true; color: theme.accent }
-                Text { text: qsTr("Close current note"); color: "#d0d3dc" }
+                Text { text: "Esc"; font.family: "JetBrainsMono Nerd Font"; font.bold: true; color: theme.accent }
+                Text { text: qsTr("Close current note"); font.family: "JetBrainsMono Nerd Font"; color: theme.foreground }
 
-                Text { text: "?"; font.bold: true; color: theme.accent }
-                Text { text: qsTr("Toggle this help overlay"); color: "#d0d3dc" }
+                Text { text: "?"; font.family: "JetBrainsMono Nerd Font"; font.bold: true; color: theme.accent }
+                Text { text: qsTr("Toggle this help overlay"); font.family: "JetBrainsMono Nerd Font"; color: theme.foreground }
             }
         }
     }

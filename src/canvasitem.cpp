@@ -2,9 +2,11 @@
 
 #include <QHoverEvent>
 #include <QMouseEvent>
+#include <QNativeGestureEvent>
 #include <QPainter>
 #include <QTabletEvent>
 #include <QTouchEvent>
+#include <QWheelEvent>
 #include <algorithm>
 #include <cmath>
 
@@ -34,6 +36,7 @@ QPainterPath buildSmoothPath(const QVector<StrokePoint> &pts) {
 }
 
 CanvasItem::CanvasItem(QQuickItem *parent) : QQuickPaintedItem(parent) {
+    setRenderTarget(QQuickPaintedItem::FramebufferObject);
     setAcceptedMouseButtons(Qt::LeftButton | Qt::RightButton | Qt::MiddleButton);
     setAcceptTouchEvents(true);
     setAcceptHoverEvents(true);
@@ -106,13 +109,14 @@ void CanvasItem::zoomOut() {
 }
 
 void CanvasItem::fitToWidth(qreal viewWidth, qreal viewHeight) {
-    if (!m_backend || viewWidth <= 0 || viewHeight <= 0)
+    Q_UNUSED(viewHeight);
+    if (!m_backend || viewWidth <= 0)
         return;
     const qreal pageW = m_backend->pageWidth();
     if (pageW <= 0)
         return;
 
-    const qreal targetZoom = (viewWidth - 32.0) / pageW;
+    const qreal targetZoom = (viewWidth - 48.0) / pageW;
     setZoom(std::clamp(targetZoom, 0.35, 2.5));
     m_panX = 0.0;
     m_panY = 0.0;
@@ -131,7 +135,7 @@ QPointF CanvasItem::mapToPage(const QPointF &itemPos) const {
     if (width() > scaledW) {
         originX += (width() - scaledW) * 0.5;
     }
-    const qreal originY = m_panY + 20.0;
+    const qreal originY = m_panY + 24.0;
 
     return QPointF((itemPos.x() - originX) / m_zoom, (itemPos.y() - originY) / m_zoom);
 }
@@ -147,32 +151,41 @@ void CanvasItem::paint(QPainter *painter) {
     painter->setRenderHint(QPainter::Antialiasing, true);
     painter->setRenderHint(QPainter::SmoothPixmapTransform, true);
 
+    // Fill workspace background with Omarchy theme tone
+    painter->fillRect(boundingRect(), QColor("#1a1b26"));
+
     const qreal pageW = page->width;
     const qreal pageH = page->height;
     const qreal scaledW = pageW * m_zoom;
+    const qreal scaledH = pageH * m_zoom;
 
     qreal originX = m_panX;
     if (width() > scaledW) {
         originX += (width() - scaledW) * 0.5;
     }
-    const qreal originY = m_panY + 20.0;
+    const qreal originY = m_panY + 24.0;
 
+    // Ambient page drop shadow
+    painter->fillRect(QRectF(originX - 1, originY + 2, scaledW + 2, scaledH + 6), QColor(0, 0, 0, 80));
+    painter->fillRect(QRectF(originX - 2, originY + 4, scaledW + 4, scaledH + 8), QColor(0, 0, 0, 40));
+
+    // Crisp white paper surface
+    painter->fillRect(QRectF(originX, originY, scaledW, scaledH), QColor("#ffffff"));
+
+    // Subtle paper border outline
+    painter->setPen(QPen(QColor(180, 185, 195), 1.0));
+    painter->drawRect(QRectF(originX, originY, scaledW, scaledH));
+
+    // Draw background if loaded from external PDF
+    if (!page->pdfBackground.isNull()) {
+        painter->drawImage(QRectF(originX, originY, scaledW, scaledH), page->pdfBackground);
+    }
+
+    // Committed vector strokes
     painter->save();
     painter->translate(originX, originY);
     painter->scale(m_zoom, m_zoom);
 
-    // Subtle paper shadow
-    painter->fillRect(QRectF(3.0, 3.0, pageW, pageH), QColor(0, 0, 0, 45));
-
-    // Crisp paper surface
-    painter->fillRect(QRectF(0, 0, pageW, pageH), QColor("#ffffff"));
-
-    // Draw background if loaded from external PDF
-    if (!page->pdfBackground.isNull()) {
-        painter->drawImage(QRectF(0, 0, pageW, pageH), page->pdfBackground);
-    }
-
-    // Committed vector strokes
     for (const Stroke &s : page->strokes) {
         if (s.points.isEmpty())
             continue;
@@ -229,7 +242,6 @@ void CanvasItem::handlePointerPress(const QPointF &pos, float pressure, bool isR
     const QPointF pagePos = mapToPage(pos);
     m_lastPagePos = pagePos;
 
-    // Check if tool is Eraser, or if hardware eraser / right-click is engaged
     const bool isEraser = (m_backend->currentTool() == 2) || isRightOrBarrel;
 
     if (isEraser) {
@@ -240,7 +252,6 @@ void CanvasItem::handlePointerPress(const QPointF &pos, float pressure, bool isR
         return;
     }
 
-    // Drawing mode (Pen or Highlighter)
     m_isDrawing = true;
     m_isErasing = false;
 
@@ -250,7 +261,6 @@ void CanvasItem::handlePointerPress(const QPointF &pos, float pressure, bool isR
 
     float baseW = (m_activeStroke.tool == 1) ? m_backend->highlighterWidth() : m_backend->penWidth();
     if (m_activeStroke.tool == 0 && pressure > 0.0f) {
-        // Dynamic pressure modulation for real ink feel
         baseW *= std::clamp(0.35f + 1.3f * pressure, 0.35f, 2.0f);
     }
     m_activeStroke.width = baseW;
@@ -319,6 +329,25 @@ void CanvasItem::handlePointerRelease(const QPointF &pos) {
 
 bool CanvasItem::event(QEvent *event) {
     switch (event->type()) {
+    case QEvent::NativeGesture: {
+        auto *ge = static_cast<QNativeGestureEvent *>(event);
+        if (ge->gestureType() == Qt::ZoomNativeGesture) {
+            const qreal scaleFactor = 1.0 + ge->value();
+            if (scaleFactor > 0.05 && scaleFactor < 20.0) {
+                const qreal oldZoom = m_zoom;
+                const qreal newZoom = std::clamp(oldZoom * scaleFactor, 0.25, 4.0);
+                const QPointF focalPos = ge->position();
+                m_panY = focalPos.y() - (focalPos.y() - m_panY) * (newZoom / oldZoom);
+                m_zoom = newZoom;
+                emit zoomChanged();
+                emit panChanged();
+                update();
+            }
+            ge->accept();
+            return true;
+        }
+        break;
+    }
     case QEvent::TabletPress: {
         auto *te = static_cast<QTabletEvent *>(event);
         float p = static_cast<float>(te->pressure());
@@ -347,6 +376,25 @@ bool CanvasItem::event(QEvent *event) {
         break;
     }
     return QQuickPaintedItem::event(event);
+}
+
+void CanvasItem::wheelEvent(QWheelEvent *event) {
+    if (event->modifiers() & Qt::ControlModifier) {
+        const qreal factor = (event->angleDelta().y() > 0) ? 1.15 : 0.85;
+        const qreal oldZoom = m_zoom;
+        const qreal newZoom = std::clamp(oldZoom * factor, 0.25, 4.0);
+        const QPointF mousePos = event->position();
+        m_panY = mousePos.y() - (mousePos.y() - m_panY) * (newZoom / oldZoom);
+        m_zoom = newZoom;
+        emit zoomChanged();
+        emit panChanged();
+        update();
+        event->accept();
+        return;
+    }
+
+    setPanY(m_panY + event->angleDelta().y() * 0.8);
+    event->accept();
 }
 
 void CanvasItem::mousePressEvent(QMouseEvent *event) {
